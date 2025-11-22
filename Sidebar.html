@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top" />
+    <meta charset="utf-8" />
+
+    <link
+      rel="stylesheet"
+      href="https://ssl.gstatic.com/docs/script/css/add-ons.css"
+    />
+    <link
+      href="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.css"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.js"></script>
+    <script type="importmap">
+      {
+        "imports": {
+          "@material/web/": "https://esm.run/@material/web/"
+        }
+      }
+    </script>
+
+    <script type="module">
+      import "@material/web/all.js";
+      import { styles as typescaleStyles } from "@material/web/typography/md-typescale-styles.js";
+      import {
+        LitElement,
+        html,
+        css,
+        nothing,
+      } from "https://cdn.jsdelivr.net/gh/lit/dist@3/core/lit-core.min.js";
+
+      document.adoptedStyleSheets.push(typescaleStyles.styleSheet);
+
+      export class SidebarView extends LitElement {
+        constructor() {
+          super();
+        }
+
+        static properties = {
+          context: {
+            type: Object,
+            converter: {
+              fromAttribute(value) {
+                try {
+                  return JSON.parse(value);
+                } catch (e) {
+                  console.error("Failed to parse context JSON:", e);
+                  return null;
+                }
+              },
+              toAttribute(value) {
+                return JSON.stringify(value);
+              },
+            },
+          },
+        };
+
+        static styles = css``;
+
+        connectedCallback() {
+          super.connectedCallback();
+
+          console.log(this.context);
+        }
+
+        disconnectedCallback() {
+          super.disconnectedCallback();
+        }
+
+        render() {
+          return html`
+            <input
+              type="button"
+              value="Close"
+              @click=${this.onClickCloseSidebarButton}
+            />
+            <input
+              type="button"
+              value="Open"
+              @click=${this.onClickOpenMergeDialogButton}
+            />
+            <pre>${JSON.stringify(this.context, null, 2)}</pre>
+          `;
+        }
+
+        onClickOpenMergeDialogButton(event) {
+          this.openMergeDialog();
+        }
+
+        onClickCloseSidebarButton(event) {
+          this.closeSidebar();
+        }
+
+        openMergeDialog() {
+          console.log("Open Merge Dialog", this.context);
+
+          google.script.run
+            .withSuccessHandler((response) => {
+              console.log(response);
+              this.closeSidebar();
+            })
+            .withFailureHandler((...e) => {
+              console.log(`The server-side function throws an exception.`, e);
+            })
+            .openMergeDialog(this.context);
+        }
+
+        closeSidebar() {
+          google.script.host.close();
+        }
+
+        /**
+         * Displays an error message within the #result element.
+         *
+         * @param {string} message The error message to display.
+         */
+        showError(message) {
+          console.error("Error:", message);
+        }
+      }
+      customElements.define("sidebar-view", SidebarView);
+
+      function googleScriptRun(name, ...args) {
+        return new Promise(function (resolve, reject) {
+          console.log(
+            `Executes the server-side Apps Script function "${name}"`,
+            args
+          );
+          google.script.run
+            .withSuccessHandler(function (...e) {
+              console.log(
+                `The server-side function "${name}" returns successfully.`,
+                e
+              );
+              resolve(...e);
+            })
+            .withFailureHandler(function (...e) {
+              console.log(
+                `The server-side function "${name}" throws an exception.`,
+                e
+              );
+              reject(...e);
+            })
+            [name](...args);
+        });
+      }
+    </script>
+  </head>
+
+  <!-- <style>
+    html,
+    body,
+    iframe {
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+    }
+  </style> -->
+
+  <body>
+    <sidebar-view context="<?= context ?>"></sidebar-view>
+  </body>
+</html>
