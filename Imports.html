@@ -1,0 +1,135 @@
+<link
+  href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined"
+  rel="stylesheet"
+/>
+<link
+  href="https://ssl.gstatic.com/docs/script/css/add-ons1.css"
+  rel="stylesheet"
+/>
+<link
+  href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap"
+  rel="stylesheet"
+/>
+<link
+  href="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.css"
+  rel="stylesheet"
+/>
+<script src="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.js"></script>
+<script type="importmap">
+  {
+    "imports": {
+      "@material/web/": "https://esm.run/@material/web/"
+    }
+  }
+</script>
+
+<script>
+  class AsyncRequestQueue {
+    constructor(concurrencyMax = 5, defaultOptions = {}) {
+      this.concurrencyMax = concurrencyMax;
+      this.activeCount = 0;
+      this.queue = [];
+
+      this.defaults = {
+        maximum_retries: 8,
+        maximum_backoff_milliseconds: 64 * 1000,
+        timeout: 10000,
+        ...defaultOptions,
+      };
+    }
+
+    _sleep(milliseconds) {
+      return new Promise((resolve) => {
+        return window.setTimeout(resolve, milliseconds);
+      });
+    }
+
+    _executeWithTimeout(task, milliseconds) {
+      return new Promise((resolve, reject) => {
+        const timerId = window.setTimeout(() => {
+          return reject(
+            new Error(`AsyncRequestQueue: Timeout exceeded (${milliseconds}ms)`)
+          );
+        }, milliseconds);
+
+        return task().then(
+          (value) => {
+            window.clearTimeout(timerId);
+            return resolve(value);
+          },
+          (reason) => {
+            window.clearTimeout(timerId);
+            return reject(reason);
+          }
+        );
+      });
+    }
+
+    async add(task, options = {}) {
+      const config = {
+        ...this.defaults,
+        ...options,
+      };
+
+      if (this.activeCount > this.concurrencyMax) {
+        await new Promise((resolve) => {
+          return this.queue.push(resolve);
+        });
+      }
+
+      this.activeCount++;
+
+      try {
+        let attempt = 0;
+
+        while (true) {
+          try {
+            return await this._executeWithTimeout(task, config.timeout);
+          } catch (error) {
+            attempt++;
+
+            if (attempt > config.maximum_retries) {
+              throw error;
+            }
+
+            const waitTime = Math.min(
+              Math.pow(2, attempt) + Math.floor(Math.random() * 1000),
+              config.maximum_backoff_milliseconds
+            );
+
+            console.warn(
+              `AsyncRequestQueue: Attempt ${attempt} failed. Retrying in ${waitTime}ms...`,
+              error.message
+            );
+
+            await this._sleep(waitTime);
+          }
+        }
+      } finally {
+        this.activeCount--;
+
+        if (this.queue.length > 0) {
+          const nextResolver = this.queue.shift();
+          nextResolver();
+        }
+      }
+    }
+  }
+
+  function googleScriptRun(name, ...args) {
+    return new Promise(function (resolve, reject) {
+      google.script.run
+        .withSuccessHandler(function (response, userObject) {
+          resolve(response, userObject);
+        })
+        .withFailureHandler(function (error, userObject) {
+          console.debug(
+            `The server-side function "${name}" throws an exception.`,
+            error
+          );
+          reject(error);
+        })
+        [name](...args);
+    });
+  }
+</script>

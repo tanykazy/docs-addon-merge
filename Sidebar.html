@@ -4,26 +4,7 @@
     <base target="_top" />
     <meta charset="utf-8" />
 
-    <link
-      rel="stylesheet"
-      href="https://ssl.gstatic.com/docs/script/css/add-ons.css"
-    />
-    <link
-      href="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.css"
-      rel="stylesheet"
-    />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap"
-      rel="stylesheet"
-    />
-    <script src="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.js"></script>
-    <script type="importmap">
-      {
-        "imports": {
-          "@material/web/": "https://esm.run/@material/web/"
-        }
-      }
-    </script>
+    <?!= HtmlService.createHtmlOutputFromFile('Imports.html').getContent(); ?>
 
     <script type="module">
       import "@material/web/all.js";
@@ -40,6 +21,9 @@
       export class SidebarView extends LitElement {
         constructor() {
           super();
+
+          this.isSpreadsheetLoading = false;
+          this.isHeaderRowLoading = false;
         }
 
         static properties = {
@@ -59,34 +43,150 @@
               },
             },
           },
+          isSpreadsheetLoading: { type: Boolean },
+          isHeaderRowLoading: { type: Boolean },
         };
 
-        static styles = css``;
+        static styles = css`
+          header {
+            display: flex;
+            flex-direction: column;
+            gap: 1em;
+            padding-top: 1em;
+            padding-bottom: 1em;
+          }
+          main {
+            flex: 1;
+            overflow-y: auto;
+          }
+          footer {
+            bottom: 0;
+          }
+          .width-full {
+            width: 100%;
+          }
+          #container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+            gap: 1em;
+          }
+          #footer-buttons {
+            text-align: right;
+          }
+          md-list,
+          md-list-item {
+            --md-list-container-color: transparent;
+          }
+        `;
+
+        render() {
+          return html`
+            <div class="sidebar" id="container">
+              <header>
+                <md-list>
+                  <md-list-item>
+                    <md-chip-set>
+                      <md-assist-chip
+                        .href=${this.context.picked.url}
+                        target="_blank"
+                      >
+                        <img slot="icon" .src=${this.context.picked.iconUrl} />
+                        ${this.context.picked.name}
+                      </md-assist-chip>
+                    </md-chip-set>
+                  </md-list-item>
+                </md-list>
+
+                ${this.isSpreadsheetLoading
+                  ? html`
+                      <md-circular-progress four-color indeterminate>
+                      </md-circular-progress>
+                    `
+                  : html`
+                      <md-filled-select
+                        class="width-full"
+                        label="シート"
+                        @change=${this.onChangeSheet}
+                      >
+                        ${!this.context.spreadsheet?.sheets
+                          ? nothing
+                          : this.context.spreadsheet.sheets.map((sheet) => {
+                              return html`
+                                <md-select-option
+                                  .value=${sheet.properties.sheetId}
+                                  .selected=${!this.context.sheet
+                                    ? false
+                                    : this.context.sheet.properties.sheetId ===
+                                      sheet.properties.sheetId
+                                    ? true
+                                    : false}
+                                >
+                                  <div slot="headline">
+                                    ${sheet.properties.title}
+                                  </div>
+                                </md-select-option>
+                              `;
+                            })}
+                      </md-filled-select>
+                    `}
+              </header>
+
+              <main>
+                ${this.isHeaderRowLoading
+                  ? html`
+                      <md-circular-progress four-color indeterminate>
+                      </md-circular-progress>
+                    `
+                  : html`
+                      <md-chip-set>
+                        ${!this.context.headerRow
+                          ? nothing
+                          : this.context.headerRow[0].map((value) => {
+                              return html`${!value
+                                ? nothing
+                                : html`
+                                    <md-suggestion-chip
+                                      .label=${toFieldCode(value)}
+                                      @click=${this.onClickFieldCode}
+                                    >
+                                    </md-suggestion-chip>
+                                  `}`;
+                            })}
+                      </md-chip-set>
+                    `}
+              </main>
+
+              <footer>
+                <div id="footer-buttons">
+                  <md-text-button @click=${this.onClickCloseSidebarButton}>
+                    <span>戻る</span>
+                  </md-text-button>
+                  <md-filled-tonal-button
+                    ?disabled=${!this.context.spreadsheet ||
+                    !this.context.sheet ||
+                    !this.context.headerRow}
+                    @click=${this.onClickOpenMergeDialogButton}
+                  >
+                    <span>次へ</span>
+                  </md-filled-tonal-button>
+                </div>
+              </footer>
+            </div>
+          `;
+        }
 
         connectedCallback() {
           super.connectedCallback();
 
-          console.log(this.context);
+          if (!this.context.spreadsheet) {
+            this.getSpreadsheet();
+          }
         }
 
         disconnectedCallback() {
           super.disconnectedCallback();
-        }
-
-        render() {
-          return html`
-            <input
-              type="button"
-              value="Close"
-              @click=${this.onClickCloseSidebarButton}
-            />
-            <input
-              type="button"
-              value="Open"
-              @click=${this.onClickOpenMergeDialogButton}
-            />
-            <pre>${JSON.stringify(this.context, null, 2)}</pre>
-          `;
         }
 
         onClickOpenMergeDialogButton(event) {
@@ -94,74 +194,91 @@
         }
 
         onClickCloseSidebarButton(event) {
-          this.closeSidebar();
+          this.openPickerDialog();
+        }
+
+        onChangeSheet(event) {
+          const value = event.target.selectedOptions[0].value;
+          this.context.sheet = this.context.spreadsheet.sheets.find(
+            (sheet) => sheet.properties.sheetId === value
+          );
+
+          this.getHeaderRow(
+            this.context.spreadsheet.spreadsheetId,
+            this.context.sheet.properties.sheetId
+          );
+        }
+
+        onClickFieldCode(event) {
+          const target = event.target;
+          const fieldCode = target.label;
+          target.disabled = true;
+
+          googleScriptRun("insertFieldCode", fieldCode).then(() => {
+            target.disabled = false;
+          });
+        }
+
+        getSpreadsheet() {
+          this.isSpreadsheetLoading = true;
+
+          googleScriptRun("getSpreadsheet", this.context.picked.id).then(
+            (spreadsheet) => {
+              this.isSpreadsheetLoading = false;
+
+              this.context.spreadsheet = spreadsheet;
+            }
+          );
+        }
+
+        getHeaderRow(spreadsheetId, sheetId) {
+          this.isHeaderRowLoading = true;
+
+          googleScriptRun(
+            "getSheetValues",
+            spreadsheetId,
+            sheetId,
+            0,
+            1,
+            0
+          ).then((response) => {
+            this.isHeaderRowLoading = false;
+
+            const valueRange = response.valueRanges[0].valueRange;
+            this.context.headerRow = valueRange.values;
+          });
         }
 
         openMergeDialog() {
-          console.log("Open Merge Dialog", this.context);
+          this.context.fieldCodes = {};
+          const header = this.context.headerRow[0];
+          const length = header.length;
+          for (let index = 0; index < length; index++) {
+            const value = header[index];
+            this.context.fieldCodes[value] = toFieldCode(value);
+          }
+          googleScriptRun("openMergeDialog", this.context).then(() => {
+            this.closeSidebar();
+          });
+        }
 
-          google.script.run
-            .withSuccessHandler((response) => {
-              console.log(response);
-              this.closeSidebar();
-            })
-            .withFailureHandler((...e) => {
-              console.log(`The server-side function throws an exception.`, e);
-            })
-            .openMergeDialog(this.context);
+        openPickerDialog() {
+          googleScriptRun("openPickerDialog").then(() => {
+            this.closeSidebar();
+          });
         }
 
         closeSidebar() {
           google.script.host.close();
         }
-
-        /**
-         * Displays an error message within the #result element.
-         *
-         * @param {string} message The error message to display.
-         */
-        showError(message) {
-          console.error("Error:", message);
-        }
       }
       customElements.define("sidebar-view", SidebarView);
 
-      function googleScriptRun(name, ...args) {
-        return new Promise(function (resolve, reject) {
-          console.log(
-            `Executes the server-side Apps Script function "${name}"`,
-            args
-          );
-          google.script.run
-            .withSuccessHandler(function (...e) {
-              console.log(
-                `The server-side function "${name}" returns successfully.`,
-                e
-              );
-              resolve(...e);
-            })
-            .withFailureHandler(function (...e) {
-              console.log(
-                `The server-side function "${name}" throws an exception.`,
-                e
-              );
-              reject(...e);
-            })
-            [name](...args);
-        });
+      function toFieldCode(value) {
+        return `{{${value}}}`;
       }
     </script>
   </head>
-
-  <!-- <style>
-    html,
-    body,
-    iframe {
-      width: 100vw;
-      height: 100vh;
-      overflow: hidden;
-    }
-  </style> -->
 
   <body>
     <sidebar-view context="<?= context ?>"></sidebar-view>

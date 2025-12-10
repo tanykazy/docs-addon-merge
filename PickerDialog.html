@@ -4,26 +4,7 @@
     <base target="_top" />
     <meta charset="utf-8" />
 
-    <link
-      rel="stylesheet"
-      href="https://ssl.gstatic.com/docs/script/css/add-ons.css"
-    />
-    <link
-      href="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.css"
-      rel="stylesheet"
-    />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap"
-      rel="stylesheet"
-    />
-    <script src="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.js"></script>
-    <script type="importmap">
-      {
-        "imports": {
-          "@material/web/": "https://esm.run/@material/web/"
-        }
-      }
-    </script>
+    <?!= HtmlService.createHtmlOutputFromFile('Imports.html').getContent(); ?>
 
     <script type="module">
       import "@material/web/all.js";
@@ -70,16 +51,14 @@
             ${this.picker?.isVisible()
               ? nothing
               : html`
-                  <md-circular-progress indeterminate></md-circular-progress>
+                  <md-circular-progress
+                    four-color
+                    indeterminate
+                  ></md-circular-progress>
                 `}
           `;
         }
 
-        /**
-         * Creates a Picker that can access the user's spreadsheets. This function
-         * uses advanced options to hide the Picker's left navigation panel and
-         * default title bar.
-         */
         createPicker() {
           if (pickerApiLoaded && this.oauthToken) {
             const mimeTypes = ["application/vnd.google-apps.spreadsheet"];
@@ -88,9 +67,6 @@
             const height = this.parentElement.offsetHeight - 72;
 
             this.picker = new google.picker.PickerBuilder()
-              // Hide the navigation panel so that Picker fills more of the dialog.
-              // .enableFeature(google.picker.Feature.NAV_HIDDEN)
-              // Hide the title bar since an Apps Script dialog already has a title.
               .hideTitleBar()
               .setLocale(navigator.languages[0])
               .setMaxItems(numItems)
@@ -103,7 +79,6 @@
                 if (action == google.picker.Action.PICKED) {
                   this.handlePicked(responseObject);
                 } else if (action == google.picker.Action.CANCEL) {
-                  console.log("Picker canceled.");
                   this.closePickerDialog();
                 } else if (action == google.picker.Action.ERROR) {
                   console.log("Error");
@@ -111,8 +86,6 @@
               })
               .setOrigin(google.script.host.origin)
               .setSize(width, height)
-              // Instruct Picker to display only spreadsheets in Drive. For other
-              // views, see https://developers.google.com/picker/reference/picker.viewid
               .addView(
                 new google.picker.DocsView(google.picker.ViewId.SPREADSHEETS)
                   .setSelectFolderEnabled(false)
@@ -130,95 +103,61 @@
               .build();
             this.picker.setVisible(true);
           } else {
-            this.showError("Unable to load the file picker.");
+            console.log("Unable to load the file picker.");
           }
         }
 
-        /**
-         * Handles `"PICKED"` responsed from the Google Picker.
-         *
-         * @param {object} responseObject The response object.
-         */
         handlePicked(responseObject) {
-          console.log(responseObject);
-          this.openSidebar(responseObject);
+          const doc = responseObject[google.picker.Response.DOCUMENTS][0];
+          const context = {
+            picked: {
+              url: doc[google.picker.Document.URL],
+              iconUrl: doc[google.picker.Document.ICON_URL],
+              id: doc[google.picker.Document.ID],
+              name: doc[google.picker.Document.NAME],
+              parentId: doc[google.picker.Document.PARENT_ID],
+              lastEditedUtc: doc[google.picker.Document.LAST_EDITED_UTC],
+              description: doc[google.picker.Document.DESCRIPTION],
+            },
+          };
+          this.openSidebar(context);
         }
 
         openSidebar(context) {
-          google.script.run
-            .withSuccessHandler((response) => {
-              console.log(response);
-              this.closePickerDialog();
-            })
-            .withFailureHandler((...e) => {
-              console.log(`The server-side function throws an exception.`, e);
-            })
-            .openSidebar(context);
+          googleScriptRun("openSidebar", context).then(() => {
+            this.closePickerDialog();
+          });
         }
 
         closePickerDialog() {
           google.script.host.close();
         }
-
-        /**
-         * Displays an error message within the #result element.
-         *
-         * @param {string} message The error message to display.
-         */
-        showError(message) {
-          console.error("Error:", message);
-        }
       }
       customElements.define("picker-view", PickerView);
+    </script>
 
-      function googleScriptRun(name, ...args) {
-        return new Promise(function (resolve, reject) {
-          console.log(
-            `Executes the server-side Apps Script function "${name}"`,
-            args
-          );
-          google.script.run
-            .withSuccessHandler(function (...e) {
-              console.log(
-                `The server-side function "${name}" returns successfully.`,
-                e
-              );
-              resolve(...e);
-            })
-            .withFailureHandler(function (...e) {
-              console.log(
-                `The server-side function "${name}" throws an exception.`,
-                e
-              );
-              reject(...e);
-            })
-            [name](...args);
+    <script>
+      let pickerApiLoaded = false;
+
+      function onApiLoad() {
+        gapi.load("picker", {
+          callback: function () {
+            pickerApiLoaded = true;
+          },
         });
       }
     </script>
+
+    <style>
+      html,
+      body,
+      iframe {
+        width: 100vw;
+        height: 100vh;
+        overflow: hidden;
+      }
+    </style>
   </head>
-
-  <script>
-    let pickerApiLoaded = false;
-
-    function onApiLoad() {
-      gapi.load("picker", {
-        callback: function () {
-          pickerApiLoaded = true;
-        },
-      });
-    }
-  </script>
-
-  <style>
-    html,
-    body,
-    iframe {
-      width: 100vw;
-      height: 100vh;
-      overflow: hidden;
-    }
-  </style>
 
   <body>
     <picker-view></picker-view>

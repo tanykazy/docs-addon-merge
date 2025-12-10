@@ -4,31 +4,7 @@
     <base target="_top" />
     <meta charset="utf-8" />
 
-    <link
-      href="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.css"
-      rel="stylesheet"
-    />
-    <script src="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.js"></script>
-    <link
-      rel="stylesheet"
-      href="https://ssl.gstatic.com/docs/script/css/add-ons1.css"
-    />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap"
-      rel="stylesheet"
-    />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined"
-      rel="stylesheet"
-    />
-
-    <script type="importmap">
-      {
-        "imports": {
-          "@material/web/": "https://esm.run/@material/web/"
-        }
-      }
-    </script>
+    <?!= HtmlService.createHtmlOutputFromFile('Imports.html').getContent(); ?>
 
     <script type="module">
       import "@material/web/all.js";
@@ -53,23 +29,15 @@
         static properties = {
           context: {
             type: Object,
-            converter: {
-              fromAttribute(value) {
-                try {
-                  return JSON.parse(value);
-                } catch (e) {
-                  console.error("Failed to parse context JSON:", e);
-                  return null;
-                }
-              },
-              toAttribute(value) {
-                return JSON.stringify(value);
-              },
+            converter: (value) => {
+              try {
+                return JSON.parse(value);
+              } catch (e) {
+                console.error("Failed to parse context JSON:", e);
+                return null;
+              }
             },
           },
-          spreadsheet: { type: Object },
-          sheet: { type: Object },
-          settings: { type: Object },
           headerRow: { type: Object },
           bodyRows: { type: Object },
           templateDocument: { type: Object },
@@ -105,22 +73,27 @@
             <div id="container">
               <header></header>
               <main>
-                ${!(this.headerRow && this.bodyRows)
-                  ? html`<md-circular-progress
-                      indeterminate
-                    ></md-circular-progress>`
+                ${!this.headerRow || !this.bodyRows
+                  ? html`
+                      <md-circular-progress
+                        four-color
+                        indeterminate
+                      ></md-circular-progress>
+                    `
                   : html`<slot></slot>`}
               </main>
               <footer>
                 <div id="footer-buttons">
-                  <md-outlined-button @click="${this.onClickClose}">
-                    Close
-                  </md-outlined-button>
+                  <md-text-button @click="${this.onClickClose}">
+                    <span>戻る</span>
+                  </md-text-button>
                   <md-filled-button
-                    ?disabled=${!this.isReadyMerge()}
+                    ?disabled=${!this.headerRow ||
+                    !this.bodyRows ||
+                    !this.templateDocument}
                     @click="${this.onClickMerge}"
                   >
-                    Merge
+                    <span>差し込み</span>
                   </md-filled-button>
                 </div>
               </footer>
@@ -131,30 +104,20 @@
         connectedCallback() {
           super.connectedCallback();
 
-          console.log(this.context);
-          return;
+          googleScriptRun(
+            "getSheetValues",
+            this.context.spreadsheet.spreadsheetId,
+            this.context.sheet.properties.sheetId
+          ).then((response) => {
+            const valueRange = response.valueRanges[0].valueRange;
 
-          google.script.run
-            .withSuccessHandler((data) => {
-              this.headerRow = data.sheets[0].data[0].rowData[0];
-              this.bodyRows = data.sheets[0].data[0].rowData.slice(1);
-            })
-            .withFailureHandler((...e) => {
-              console.log(`The server-side function throws an exception.`, e);
-            })
-            .getSheetsData(
-              this.spreadsheet.spreadsheetId,
-              this.sheet.properties.title
-            );
+            this.headerRow = valueRange.values[0];
+            this.bodyRows = valueRange.values.slice(1);
+          });
 
-          google.script.run
-            .withSuccessHandler((templateDocument) => {
-              this.templateDocument = templateDocument;
-            })
-            .withFailureHandler((...e) => {
-              console.log(`The server-side function throws an exception.`, e);
-            })
-            .getTemplateDocument();
+          googleScriptRun("getTemplateDocument").then((response) => {
+            this.templateDocument = response;
+          });
 
           if (!this.mdcDataTable) {
             const dataTable = document.querySelector(".mdc-data-table");
@@ -179,18 +142,6 @@
           ) {
             if (this.headerRow && this.bodyRows) {
               this.renderMdcDataTable();
-            }
-          }
-        }
-
-        isReadyMerge() {
-          if (this.progress > 0) {
-            return false;
-          } else {
-            if (this.headerRow && this.bodyRows && this.templateDocument) {
-              return true;
-            } else {
-              return false;
             }
           }
         }
@@ -224,13 +175,13 @@
           checkboxCell.appendChild(mdcCheckbox);
           this.mdcDataTable.headerRow.appendChild(checkboxCell);
 
-          if (this.headerRow.values) {
-            for (let index = 0; index < this.headerRow.values.length; index++) {
-              const cell = this.headerRow.values[index];
+          if (this.headerRow) {
+            for (let index = 0; index < this.headerRow.length; index++) {
+              const cell = this.headerRow[index];
               const th = document.createElement("th");
               th.classList.add("mdc-data-table__header-cell");
               th.scope = "col";
-              th.innerText = cell.formattedValue || "";
+              th.innerText = cell || "";
 
               this.mdcDataTable.headerRow.appendChild(th);
             }
@@ -268,18 +219,41 @@
             checkboxDiv.classList.add("mdc-data-table__row-checkbox");
             checkboxCell.appendChild(checkboxDiv);
 
-            if (this.bodyRows[rowIndex].values) {
+            if (this.bodyRows[rowIndex]) {
               for (
                 let columnIndex = 0;
-                columnIndex < this.bodyRows[rowIndex].values.length;
+                columnIndex < this.bodyRows[rowIndex].length;
                 columnIndex++
               ) {
-                const cell = this.bodyRows[rowIndex].values[columnIndex];
+                const cell = this.bodyRows[rowIndex][columnIndex];
                 const cellElement = rowElement.insertCell(
                   columnIndex + columnCount
                 );
-                cellElement.classList.add("mdc-data-table__cell");
-                cellElement.innerText = cell.formattedValue || "";
+                cellElement.classList.add(
+                  "mdc-data-table__cell",
+                  "data-table-cell"
+                );
+                cellElement.setAttribute(
+                  "aria-describedby",
+                  `tooltipId-${rowIndex}-${columnIndex}`
+                );
+                cellElement.innerText = cell || "";
+
+                const mdcTooltip = document.createElement("div");
+                mdcTooltip.classList.add("mdc-tooltip");
+                mdcTooltip.id = `tooltipId-${rowIndex}-${columnIndex}`;
+                mdcTooltip.setAttribute("aria-hidden", "true");
+                mdcTooltip.setAttribute("role", "tooltip");
+                const mdcTooltipSurface = document.createElement("div");
+                mdcTooltipSurface.classList.add(
+                  "mdc-tooltip__surface",
+                  "mdc-tooltip__surface-animation"
+                );
+                mdcTooltipSurface.innerText = cell || "";
+                mdcTooltip.appendChild(mdcTooltipSurface);
+                mdc.tooltip.MDCTooltip.attachTo(mdcTooltip);
+
+                cellElement.appendChild(mdcTooltip);
               }
             }
           }
@@ -291,20 +265,20 @@
         buildMergeData(selectedRowId) {
           const row = this.bodyRows[parseInt(selectedRowId)];
           const mergeData = {};
-          for (let index = 0; index < row.values.length; index++) {
-            const cell = row.values[index];
-            const headerCell = this.headerRow.values[index];
+          for (let index = 0; index < row.length; index++) {
+            const cell = row[index];
+            const headerCell = this.headerRow[index];
             if (headerCell) {
-              const fieldCode = this.settings[headerCell.formattedValue];
+              const fieldCode = this.context.fieldCodes[headerCell];
               if (fieldCode) {
-                mergeData[fieldCode] = cell.formattedValue || "";
+                mergeData[fieldCode] = cell || "";
               }
             }
           }
           return mergeData;
         }
 
-        createAndReplaceMergeDocument(
+        async createAndReplaceMergeDocument(
           selectedRowId,
           templateDocument,
           targetFolderId,
@@ -318,146 +292,142 @@
             );
           }
 
+          const replaceAllTextRequests = [];
+          for (const fieldCode in mergeData) {
+            replaceAllTextRequests.push({
+              replaceAllText: {
+                replaceText: mergeData[fieldCode],
+                containsText: {
+                  text: RegExp.escape(fieldCode),
+                  matchCase: true,
+                  searchByRegex: true,
+                },
+              },
+            });
+          }
+
           this.progress++;
           if (this.progress > 0) {
             this.mdcDataTable.showProgress();
           }
 
-          google.script.run
-            .withSuccessHandler((result) => {
-              const replaceAllTextRequests = [];
-              for (const fieldCode in mergeData) {
-                replaceAllTextRequests.push({
-                  replaceAllText: {
-                    replaceText: mergeData[fieldCode],
-                    containsText: {
-                      text: RegExp.escape(fieldCode),
-                      matchCase: true,
-                      searchByRegex: true,
-                    },
-                  },
-                });
-              }
+          const result = await googleScriptRun(
+            "createMergeDocument",
+            templateDocument.documentId,
+            targetFolderId,
+            title
+          ).then(async (result) => {
+            return result;
+          });
 
-              google.script.run
-                .withSuccessHandler((response) => {
-                  this.mergedDocuments.push({
-                    document: result.document,
-                    url: result.url,
-                  });
+          this.progress--;
+          if (this.progress === 0) {
+            this.mdcDataTable.hideProgress();
+          }
 
-                  const mdcIconButton = this.mdcDataTable
-                    .getRows()
-                    [selectedRowId].cells.namedItem("icon-button-cell")
-                    .querySelector('[name="icon-button"]');
-                  mdcIconButton.href = result.url;
-                  mdcIconButton.disabled = false;
-
-                  const mdcIcon = mdcIconButton.firstChild;
-                  mdcIcon.innerText = "open_in_new";
-
-                  this.mdcDataTable.setSelectedRowIds(
-                    this.mdcDataTable
-                      .getSelectedRowIds()
-                      .filter((rowId) => rowId !== selectedRowId)
-                  );
-
-                  this.progress--;
-                  if (this.progress === 0) {
-                    this.mdcDataTable.hideProgress();
-                  }
-                })
-                .withFailureHandler((...e) => {
-                  console.log(
-                    `The server-side function throws an exception.`,
-                    e
-                  );
-                  this.progress--;
-                  if (this.progress === 0) {
-                    this.mdcDataTable.hideProgress();
-                  }
-                })
-                .replaceMergeDocument(
-                  result.document.documentId,
-                  result.document.revisionId,
-                  replaceAllTextRequests
-                );
-            })
-            .withFailureHandler((...e) => {
-              console.log(`The server-side function throws an exception.`, e);
-              this.progress--;
-              if (this.progress === 0) {
-                this.mdcDataTable.hideProgress();
-              }
-            })
-            .createMergeDocument(
-              templateDocument.documentId,
-              targetFolderId,
-              title
-            );
-        }
-
-        mergeDocuments(selectedRowIds) {
-          if (this.targetFolder) {
-            for (const selectedRowId of selectedRowIds) {
-              const mergeData = this.buildMergeData(selectedRowId);
-
-              this.createAndReplaceMergeDocument(
-                selectedRowId,
-                this.templateDocument,
-                targetFolder.id,
-                mergeData
-              );
+          if (replaceAllTextRequests.length > 0) {
+            this.progress++;
+            if (this.progress > 0) {
+              this.mdcDataTable.showProgress();
             }
 
-            return;
+            await googleScriptRun(
+              "replaceMergeDocument",
+              result.document.documentId,
+              result.document.revisionId,
+              replaceAllTextRequests
+            )
+              .then((response) => {})
+              .catch((error) => {
+                console.error(error);
+              })
+              .finally(() => {
+                this.progress--;
+                if (this.progress === 0) {
+                  this.mdcDataTable.hideProgress();
+                }
+              });
           }
 
-          this.progress++;
-          if (this.progress > 0) {
-            this.mdcDataTable.showProgress();
+          this.mergedDocuments.push({
+            document: result.document,
+            url: result.url,
+          });
+
+          const mdcIconButton = this.mdcDataTable
+            .getRows()
+            [selectedRowId].cells.namedItem("icon-button-cell")
+            .querySelector('[name="icon-button"]');
+          mdcIconButton.href = result.url;
+          mdcIconButton.disabled = false;
+
+          const mdcIcon = mdcIconButton.firstChild;
+          mdcIcon.innerText = "open_in_new";
+
+          this.mdcDataTable.setSelectedRowIds(
+            this.mdcDataTable
+              .getSelectedRowIds()
+              .filter((rowId) => rowId !== selectedRowId)
+          );
+        }
+
+        async mergeDocuments(selectedRowIds) {
+          if (!this.targetFolder) {
+            this.progress++;
+            if (this.progress > 0) {
+              this.mdcDataTable.showProgress();
+            }
+
+            await googleScriptRun(
+              "createTargetFolder",
+              this.templateDocument.documentId
+            )
+              .then((response) => {
+                this.targetFolder = response;
+
+                const mdcIconButton = this.mdcDataTable
+                  .getHeaderCells()
+                  .find((cell) => {
+                    return cell.getAttribute("name") === "icon-button-cell";
+                  })
+                  .querySelector('[name="icon-button"]');
+                mdcIconButton.href = this.targetFolder.url;
+                mdcIconButton.disabled = false;
+
+                const mdcIcon = mdcIconButton.firstChild;
+                mdcIcon.innerText = "folder";
+              })
+              .finally(() => {
+                this.progress--;
+                if (this.progress === 0) {
+                  this.mdcDataTable.hideProgress();
+                }
+              });
           }
 
-          google.script.run
-            .withSuccessHandler((targetFolder) => {
-              this.targetFolder = targetFolder;
+          const asyncRequestQueue = new AsyncRequestQueue();
+          for (const selectedRowId of selectedRowIds) {
+            const mergeData = this.buildMergeData(selectedRowId);
 
-              const mdcIconButton = this.mdcDataTable
-                .getHeaderCells()
-                .find((cell) => {
-                  return cell.getAttribute("name") === "icon-button-cell";
-                })
-                .querySelector('[name="icon-button"]');
-              mdcIconButton.href = targetFolder.url;
-              mdcIconButton.disabled = false;
+            asyncRequestQueue.add(async () => {
+              await this.createAndReplaceMergeDocument(
+                selectedRowId,
+                this.templateDocument,
+                this.targetFolder.id,
+                mergeData
+              );
+            });
+          }
+        }
 
-              const mdcIcon = mdcIconButton.firstChild;
-              mdcIcon.innerText = "folder";
+        openSidebar(context) {
+          googleScriptRun("openSidebar", context).then(() => {
+            this.closeMergeDialog();
+          });
+        }
 
-              for (const selectedRowId of selectedRowIds) {
-                const mergeData = this.buildMergeData(selectedRowId);
-
-                this.createAndReplaceMergeDocument(
-                  selectedRowId,
-                  this.templateDocument,
-                  targetFolder.id,
-                  mergeData
-                );
-              }
-
-              this.progress--;
-              if (this.progress === 0) {
-                this.mdcDataTable.hideProgress();
-              }
-            })
-            .withFailureHandler((...e) => {
-              console.log(`The server-side function throws an exception.`, e);
-              this.progress--;
-              if (this.progress === 0) {
-                this.mdcDataTable.hideProgress();
-              }
-            })
-            .createTargetFolder(this.templateDocument.documentId);
+        closeMergeDialog() {
+          google.script.host.close();
         }
 
         onClickMerge(event) {
@@ -470,35 +440,10 @@
         }
 
         onClickClose(event) {
-          google.script.host.close();
+          this.openSidebar(this.context);
         }
       }
       customElements.define("merge-view", MergeView);
-
-      function googleScriptRun(name, ...args) {
-        return new Promise(function (resolve, reject) {
-          console.log(
-            `Executes the server-side Apps Script function "${name}"`,
-            args
-          );
-          google.script.run
-            .withSuccessHandler(function (...e) {
-              console.log(
-                `The server-side function "${name}" returns successfully.`,
-                e
-              );
-              resolve(...e);
-            })
-            .withFailureHandler(function (...e) {
-              console.log(
-                `The server-side function "${name}" throws an exception.`,
-                e
-              );
-              reject(...e);
-            })
-            [name](...args);
-        });
-      }
 
       function createMdcCheckbox() {
         const checkboxDiv = document.createElement("div");
@@ -541,10 +486,20 @@
         return checkboxDiv;
       }
     </script>
+
+    <style>
+      .data-table-cell {
+        max-width: max(100px, calc(100vw / 5));
+      }
+      .data-table-cell:hover,
+      .data-table-cell:focus {
+        max-width: max(100px, calc(100vw / 5));
+      }
+    </style>
   </head>
 
   <body>
-    <merge-view context="<?= context >">
+    <merge-view context="<?= context ?>">
       <div class="mdc-data-table mdc-data-table--sticky-header">
         <div class="mdc-data-table__table-container">
           <table class="mdc-data-table__table">
