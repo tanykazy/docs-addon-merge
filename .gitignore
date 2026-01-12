@@ -1,6 +1,9 @@
 # for clasp
 .clasp.json
 
+# for vscode
+.vscode
+
 # Logs
 logs
 *.log

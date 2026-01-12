@@ -4,8 +4,38 @@
     <base target="_top" />
     <meta charset="utf-8" />
 
-    <?!= HtmlService.createHtmlOutputFromFile('Imports.html').getContent(); ?>
+    <?!= include_('Imports.html'); ?>
 
+    <!-- Add-ons1.css -->
+    <link
+      href="https://ssl.gstatic.com/docs/script/css/add-ons1.css"
+      rel="stylesheet"
+    />
+
+    <!-- Material Components -->
+    <link
+      href="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.css"
+      rel="stylesheet"
+    />
+    <script src="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.js"></script>
+
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined"
+      rel="stylesheet"
+    />
+
+    <!-- Roboto -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <script type="importmap">
+      {
+        "imports": {
+          "@material/web/": "https://esm.run/@material/web/"
+        }
+      }
+    </script>
     <script type="module">
       import "@material/web/all.js";
       import { styles as typescaleStyles } from "@material/web/typography/md-typescale-styles.js";
@@ -45,15 +75,13 @@
           },
           isSpreadsheetLoading: { type: Boolean },
           isHeaderRowLoading: { type: Boolean },
+          mdcSnackbar: { type: Object },
         };
 
         static styles = css`
           header {
             display: flex;
             flex-direction: column;
-            gap: 1em;
-            padding-top: 1em;
-            padding-bottom: 1em;
           }
           main {
             flex: 1;
@@ -74,10 +102,14 @@
           }
           #footer-buttons {
             text-align: right;
+            margin-left: 1em;
+            margin-right: 1em;
+            margin-bottom: 1em;
           }
           md-list,
           md-list-item {
             --md-list-container-color: transparent;
+            --md-list-item-label-text-font: 12px;
           }
         `;
 
@@ -87,18 +119,34 @@
               <header>
                 <md-list>
                   <md-list-item>
-                    <md-chip-set>
-                      <md-assist-chip
-                        .href=${this.context.picked.url}
-                        target="_blank"
-                      >
-                        <img slot="icon" .src=${this.context.picked.iconUrl} />
-                        ${this.context.picked.name}
-                      </md-assist-chip>
-                    </md-chip-set>
+                    <div slot="supporting-text">
+                      <span>データソース</span>
+                    </div>
+                    <md-icon-button
+                      slot="end"
+                      @click=${this.onClickSpreadsheetRefreshButton}
+                    >
+                      <md-icon>refresh</md-icon>
+                    </md-icon-button>
+                  </md-list-item>
+                  <md-divider></md-divider>
+                  <md-list-item>
+                    <img
+                      slot="start"
+                      style="width: 16px"
+                      .src=${this.context.picked.iconUrl}
+                    />
+                    <div slot="headline">${this.context.picked.name}</div>
+
+                    <md-icon-button
+                      slot="end"
+                      href=${this.context.picked.url}
+                      target="_blank"
+                    >
+                      <md-icon>open_in_new</md-icon>
+                    </md-icon-button>
                   </md-list-item>
                 </md-list>
-
                 ${this.isSpreadsheetLoading
                   ? html`
                       <md-circular-progress four-color indeterminate>
@@ -139,22 +187,53 @@
                       <md-circular-progress four-color indeterminate>
                       </md-circular-progress>
                     `
+                  : !this.context.headerRow
+                  ? nothing
                   : html`
-                      <md-chip-set>
-                        ${!this.context.headerRow
-                          ? nothing
-                          : this.context.headerRow[0].map((value) => {
-                              return html`${!value
-                                ? nothing
-                                : html`
-                                    <md-suggestion-chip
-                                      .label=${toFieldCode(value)}
-                                      @click=${this.onClickFieldCode}
-                                    >
-                                    </md-suggestion-chip>
-                                  `}`;
-                            })}
-                      </md-chip-set>
+                      <md-list>
+                        <md-list-item>
+                          <div slot="supporting-text">
+                            <span>フィールドコード</span>
+                          </div>
+                        </md-list-item>
+                        <md-divider></md-divider>
+                        ${this.context.headerRow[0].map((value) => {
+                          const warning =
+                            this.context.headerRow[0].filter((header) => {
+                              return header === value;
+                            }).length > 1;
+                          const fieldCode = toFieldCode(value);
+                          return html`${!value
+                            ? nothing
+                            : html`
+                                <md-list-item type="text">
+                                  <div slot="headline">${fieldCode}</div>
+                                  ${warning
+                                    ? html`
+                                        <div slot="supporting-text">
+                                          <span>列名が重複しています</span>
+                                        </div>
+                                      `
+                                    : nothing}
+                                  ${warning
+                                    ? html`
+                                        <md-icon slot="start">warning</md-icon>
+                                      `
+                                    : html`
+                                        <md-icon-button
+                                          slot="end"
+                                          @click=${this.onClickFieldCode.bind(
+                                            this,
+                                            fieldCode
+                                          )}
+                                        >
+                                          <md-icon>content_copy</md-icon>
+                                        </md-icon-button>
+                                      `}
+                                </md-list-item>
+                              `}`;
+                        })}
+                      </md-list>
                     `}
               </main>
 
@@ -174,6 +253,7 @@
                 </div>
               </footer>
             </div>
+            <slot></slot>
           `;
         }
 
@@ -183,6 +263,9 @@
           if (!this.context.spreadsheet) {
             this.getSpreadsheet();
           }
+
+          const snackbar = document.querySelector(".mdc-snackbar");
+          this.mdcSnackbar = new mdc.snackbar.MDCSnackbar(snackbar);
         }
 
         disconnectedCallback() {
@@ -209,14 +292,17 @@
           );
         }
 
-        onClickFieldCode(event) {
-          const target = event.target;
-          const fieldCode = target.label;
-          target.disabled = true;
-
-          googleScriptRun("insertFieldCode", fieldCode).then(() => {
-            target.disabled = false;
+        onClickFieldCode(fieldCode, event) {
+          writeTextToClipboard(fieldCode).then(() => {
+            this.openSnackbar("コピーしました");
           });
+        }
+
+        onClickSpreadsheetRefreshButton(event) {
+          this.getSpreadsheet();
+
+          this.context.sheet = null;
+          this.context.headerRow = null;
         }
 
         getSpreadsheet() {
@@ -257,15 +343,19 @@
             const value = header[index];
             this.context.fieldCodes[value] = toFieldCode(value);
           }
-          googleScriptRun("openMergeDialog", this.context).then(() => {
-            this.closeSidebar();
-          });
+
+          googleScriptRun("openMergeDialog", this.context);
         }
 
         openPickerDialog() {
           googleScriptRun("openPickerDialog").then(() => {
             this.closeSidebar();
           });
+        }
+
+        openSnackbar(labelText) {
+          this.mdcSnackbar.labelText = labelText;
+          this.mdcSnackbar.open();
         }
 
         closeSidebar() {
@@ -277,10 +367,26 @@
       function toFieldCode(value) {
         return `{{${value}}}`;
       }
+
+      function writeTextToClipboard(text) {
+        return navigator.clipboard.writeText(text);
+      }
     </script>
   </head>
 
   <body>
-    <sidebar-view context="<?= context ?>"></sidebar-view>
+    <sidebar-view context="<?= context ?>">
+      <aside class="mdc-snackbar">
+        <div
+          class="mdc-snackbar__surface"
+          role="status"
+          aria-relevant="additions"
+        >
+          <div class="mdc-snackbar__label" aria-atomic="false">
+            <span></span>
+          </div>
+        </div>
+      </aside>
+    </sidebar-view>
   </body>
 </html>
