@@ -1,0 +1,18 @@
+<script>
+  function googleScriptRun(name, ...args) {
+    return new Promise(function (resolve, reject) {
+      google.script.run
+        .withSuccessHandler(function (response, userObject) {
+          resolve(response, userObject);
+        })
+        .withFailureHandler(function (error, userObject) {
+          console.debug(
+            `The server-side function "${name}" throws an exception.`,
+            error
+          );
+          reject(error);
+        })
+        [name](...args);
+    });
+  }
+</script>
