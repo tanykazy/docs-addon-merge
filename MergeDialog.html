@@ -1,80 +1,94 @@
 <!DOCTYPE html>
 <html>
+  <head>
+    <base target="_top" />
+    <meta charset="utf-8" />
 
-<head>
-  <base target="_top" />
-  <meta charset="utf-8" />
+    <?!= include_('Imports.html'); ?>
 
-  <?!= include_('Imports.html'); ?>
+    <!-- Add-ons1.css -->
+    <link
+      href="https://ssl.gstatic.com/docs/script/css/add-ons1.css"
+      rel="stylesheet"
+    />
 
-  <!-- Add-ons1.css -->
-  <link href="https://ssl.gstatic.com/docs/script/css/add-ons1.css" rel="stylesheet" />
+    <!-- Material Components -->
+    <link
+      href="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.css"
+      rel="stylesheet"
+    />
+    <script src="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.js"></script>
 
-  <!-- Material Components -->
-  <link href="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.css" rel="stylesheet" />
-  <script src="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.js"></script>
+    <!-- Material Icons -->
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/icon?family=Material+Icons"
+    />
 
-  <!-- Material Icons -->
-  <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons" />
+    <!-- Material Symbols -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined"
+      rel="stylesheet"
+    />
 
-  <!-- Material Symbols -->
-  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
-
-  <!-- Roboto -->
-  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" />
-  <script type="importmap">
+    <!-- Roboto -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <script type="importmap">
       {
         "imports": {
           "@material/web/": "https://esm.run/@material/web/"
         }
       }
     </script>
-  <script type="module">
-    import "@material/web/all.js";
-    import { styles as typescaleStyles } from "@material/web/typography/md-typescale-styles.js";
-    import {
-      LitElement,
-      html,
-      css,
-      nothing,
-      ref,
-      createRef,
-    } from "https://cdn.jsdelivr.net/gh/lit/dist@3/all/lit-all.min.js";
+    <script type="module">
+      import "@material/web/all.js";
+      import { styles as typescaleStyles } from "@material/web/typography/md-typescale-styles.js";
+      import {
+        LitElement,
+        html,
+        css,
+        nothing,
+        ref,
+        createRef,
+      } from "https://cdn.jsdelivr.net/gh/lit/dist@3/all/lit-all.min.js";
 
-    document.adoptedStyleSheets.push(typescaleStyles.styleSheet);
+      document.adoptedStyleSheets.push(typescaleStyles.styleSheet);
 
-    export class MergeView extends LitElement {
-      mergeMenuRef = createRef();
+      export class MergeView extends LitElement {
+        mergeMenuRef = createRef();
 
-      constructor() {
-        super();
+        constructor() {
+          super();
 
-        this.mergedDocuments = [];
-        this.progress = 0;
-      }
+          this.mergedDocuments = [];
+          this.progress = 0;
+        }
 
-      static properties = {
-        context: {
-          type: Object,
-          converter: (value) => {
-            try {
-              return JSON.parse(value);
-            } catch (e) {
-              console.error("Failed to parse context JSON:", e);
-              return null;
-            }
+        static properties = {
+          context: {
+            type: Object,
+            converter: (value) => {
+              try {
+                return JSON.parse(value);
+              } catch (e) {
+                console.error("Failed to parse context JSON:", e);
+                return null;
+              }
+            },
           },
-        },
-        headerRow: { type: Object },
-        bodyRows: { type: Object },
-        templateDocument: { type: Object },
-        targetFolder: { type: Object },
-        mergedDocuments: { type: Array },
-        mdcDataTable: { type: Object },
-        progress: { type: Number },
-      };
+          headerRow: { type: Object },
+          bodyRows: { type: Object },
+          templateDocument: { type: Object },
+          targetFolder: { type: Object },
+          mergedDocuments: { type: Array },
+          mdcDataTable: { type: Object },
+          progress: { type: Number },
+        };
 
-      static styles = css`
+        static styles = css`
           header {
           }
           main {
@@ -98,19 +112,19 @@
           }
         `;
 
-      render() {
-        return html`
+        render() {
+          return html`
             <div id="container">
               <header></header>
               <main>
                 ${!this.headerRow || !this.bodyRows
-            ? html`
+                  ? html`
                       <md-circular-progress
                         four-color
                         indeterminate
                       ></md-circular-progress>
                     `
-            : html`<slot></slot>`}
+                  : html`<slot></slot>`}
               </main>
               <footer>
                 <div id="footer-buttons" style="position: relative">
@@ -122,9 +136,9 @@
                     trailing-icon
                     has-icon
                     ?disabled=${!this.headerRow ||
-          !this.bodyRows ||
-          !this.templateDocument ||
-          this.progress > 0}
+                    !this.bodyRows ||
+                    !this.templateDocument ||
+                    this.progress > 0}
                     @click=${this.onClickMerge}
                   >
                     <span>完了</span>
@@ -142,104 +156,56 @@
               </footer>
             </div>
           `;
-      }
-
-      connectedCallback() {
-        super.connectedCallback();
-
-        googleScriptRun(
-          "getSheetValues",
-          this.context.spreadsheet.spreadsheetId,
-          this.context.sheet.properties.sheetId
-        ).then((response) => {
-          const valueRange = response.valueRanges[0].valueRange;
-
-          this.headerRow = valueRange.values[0];
-          this.bodyRows = valueRange.values.slice(1);
-        });
-
-        googleScriptRun("getTemplateDocument").then((response) => {
-          this.templateDocument = response;
-        });
-
-        if (!this.mdcDataTable) {
-          const dataTable = document.querySelector(".mdc-data-table");
-          if (dataTable) {
-            this.mdcDataTable = new mdc.dataTable.MDCDataTable(dataTable);
-          }
         }
-      }
 
-      disconnectedCallback() {
-        super.disconnectedCallback();
-        if (this.mdcDataTable) {
-          this.mdcDataTable.destroy();
-        }
-      }
+        connectedCallback() {
+          super.connectedCallback();
 
-      willUpdate(changedProperties) {
-        super.willUpdate(changedProperties);
-        if (
-          changedProperties.has("headerRow") ||
-          changedProperties.has("bodyRows")
-        ) {
-          if (this.headerRow && this.bodyRows) {
-            this.renderMdcDataTable();
-          }
-        }
-      }
+          googleScriptRun(
+            "getSheetValues",
+            this.context.spreadsheet.spreadsheetId,
+            this.context.sheet.properties.sheetId
+          ).then((response) => {
+            const valueRange = response.valueRanges[0].valueRange;
 
-      renderMdcDataTable() {
-        const iconButtonCell = document.createElement("th");
-        iconButtonCell.classList.add("mdc-data-table__header-cell");
-        iconButtonCell.setAttribute("name", "icon-button-cell");
+            this.headerRow = valueRange.values[0];
+            this.bodyRows = valueRange.values.slice(1);
+          });
 
-        const mdcIconButton = document.createElement("md-icon-button");
-        mdcIconButton.name = "icon-button";
-        mdcIconButton.disabled = true;
-        mdcIconButton.target = "_blank";
+          googleScriptRun("getTemplateDocument").then((response) => {
+            this.templateDocument = response;
+          });
 
-        const mdcIcon = document.createElement("md-icon");
-        mdcIcon.innerText = "folder_off";
-
-        mdcIconButton.appendChild(mdcIcon);
-        iconButtonCell.appendChild(mdcIconButton);
-        this.mdcDataTable.headerRow.appendChild(iconButtonCell);
-
-        const checkboxCell = document.createElement("th");
-        checkboxCell.classList.add(
-          "mdc-data-table__header-cell",
-          "mdc-data-table__header-cell--checkbox"
-        );
-        checkboxCell.scope = "col";
-
-        const mdcCheckbox = createMdcCheckbox();
-        mdcCheckbox.classList.add("mdc-data-table__header-row-checkbox");
-        checkboxCell.appendChild(mdcCheckbox);
-        this.mdcDataTable.headerRow.appendChild(checkboxCell);
-
-        if (this.headerRow) {
-          for (let index = 0; index < this.headerRow.length; index++) {
-            const cell = this.headerRow[index];
-            const th = document.createElement("th");
-            th.classList.add("mdc-data-table__header-cell");
-            th.scope = "col";
-            th.innerText = cell || "";
-
-            this.mdcDataTable.headerRow.appendChild(th);
+          if (!this.mdcDataTable) {
+            const dataTable = document.querySelector(".mdc-data-table");
+            if (dataTable) {
+              this.mdcDataTable = new mdc.dataTable.MDCDataTable(dataTable);
+            }
           }
         }
 
-        const selectRowIds = [];
-        for (let rowIndex = 0; rowIndex < this.bodyRows.length; rowIndex++) {
-          let columnCount = 0;
-          selectRowIds.push(rowIndex.toString(10));
-          const rowElement = this.mdcDataTable.content.insertRow();
-          rowElement.classList.add("mdc-data-table__row");
-          rowElement.setAttribute("data-row-id", rowIndex.toString(10));
+        disconnectedCallback() {
+          super.disconnectedCallback();
+          if (this.mdcDataTable) {
+            this.mdcDataTable.destroy();
+          }
+        }
 
-          const iconButtonCell = rowElement.insertCell(columnCount++);
-          iconButtonCell.classList.add("mdc-data-table__cell");
+        willUpdate(changedProperties) {
+          super.willUpdate(changedProperties);
+          if (
+            changedProperties.has("headerRow") ||
+            changedProperties.has("bodyRows")
+          ) {
+            if (this.headerRow && this.bodyRows) {
+              this.renderMdcDataTable();
+            }
+          }
+        }
+
+        renderMdcDataTable() {
+          const iconButtonCell = document.createElement("th");
+          iconButtonCell.classList.add("mdc-data-table__header-cell");
           iconButtonCell.setAttribute("name", "icon-button-cell");
 
           const mdcIconButton = document.createElement("md-icon-button");
@@ -248,141 +214,332 @@
           mdcIconButton.target = "_blank";
 
           const mdcIcon = document.createElement("md-icon");
-          mdcIcon.innerText = "open_in_new_off";
+          mdcIcon.innerText = "folder_off";
+
           mdcIconButton.appendChild(mdcIcon);
           iconButtonCell.appendChild(mdcIconButton);
+          this.mdcDataTable.headerRow.appendChild(iconButtonCell);
 
-          const checkboxCell = rowElement.insertCell(columnCount++);
+          const checkboxCell = document.createElement("th");
           checkboxCell.classList.add(
-            "mdc-data-table__cell",
-            "mdc-data-table__cell--checkbox"
+            "mdc-data-table__header-cell",
+            "mdc-data-table__header-cell--checkbox"
           );
+          checkboxCell.scope = "col";
 
-          const checkboxDiv = createMdcCheckbox();
-          checkboxDiv.classList.add("mdc-data-table__row-checkbox");
-          checkboxCell.appendChild(checkboxDiv);
+          const mdcCheckbox = createMdcCheckbox();
+          mdcCheckbox.classList.add("mdc-data-table__header-row-checkbox");
+          checkboxCell.appendChild(mdcCheckbox);
+          this.mdcDataTable.headerRow.appendChild(checkboxCell);
 
-          if (this.bodyRows[rowIndex]) {
-            for (
-              let columnIndex = 0;
-              columnIndex < this.bodyRows[rowIndex].length;
-              columnIndex++
-            ) {
-              const cell = this.bodyRows[rowIndex][columnIndex];
-              const cellElement = rowElement.insertCell(
-                columnIndex + columnCount
-              );
-              cellElement.classList.add(
-                "mdc-data-table__cell",
-                "data-table-cell"
-              );
-              cellElement.setAttribute(
-                "aria-describedby",
-                `tooltipId-${rowIndex}-${columnIndex}`
-              );
-              cellElement.innerText = cell || "";
+          if (this.headerRow) {
+            for (let index = 0; index < this.headerRow.length; index++) {
+              const cell = this.headerRow[index];
+              const th = document.createElement("th");
+              th.classList.add("mdc-data-table__header-cell");
+              th.scope = "col";
+              th.innerText = cell || "";
 
-              if (cellElement.innerText) {
-                const mdcTooltip = document.createElement("div");
-                mdcTooltip.classList.add("mdc-tooltip");
-                mdcTooltip.id = `tooltipId-${rowIndex}-${columnIndex}`;
-                mdcTooltip.setAttribute("aria-hidden", "true");
-                mdcTooltip.setAttribute("role", "tooltip");
-                const mdcTooltipSurface = document.createElement("div");
-                mdcTooltipSurface.classList.add(
-                  "mdc-tooltip__surface",
-                  "mdc-tooltip__surface-animation"
+              this.mdcDataTable.headerRow.appendChild(th);
+            }
+          }
+
+          const selectRowIds = [];
+          for (let rowIndex = 0; rowIndex < this.bodyRows.length; rowIndex++) {
+            let columnCount = 0;
+            selectRowIds.push(rowIndex.toString(10));
+            const rowElement = this.mdcDataTable.content.insertRow();
+            rowElement.classList.add("mdc-data-table__row");
+            rowElement.setAttribute("data-row-id", rowIndex.toString(10));
+
+            const iconButtonCell = rowElement.insertCell(columnCount++);
+            iconButtonCell.classList.add("mdc-data-table__cell");
+            iconButtonCell.setAttribute("name", "icon-button-cell");
+
+            const mdcIconButton = document.createElement("md-icon-button");
+            mdcIconButton.name = "icon-button";
+            mdcIconButton.disabled = true;
+            mdcIconButton.target = "_blank";
+
+            const mdcIcon = document.createElement("md-icon");
+            mdcIcon.innerText = "open_in_new_off";
+            mdcIconButton.appendChild(mdcIcon);
+            iconButtonCell.appendChild(mdcIconButton);
+
+            const checkboxCell = rowElement.insertCell(columnCount++);
+            checkboxCell.classList.add(
+              "mdc-data-table__cell",
+              "mdc-data-table__cell--checkbox"
+            );
+
+            const checkboxDiv = createMdcCheckbox();
+            checkboxDiv.classList.add("mdc-data-table__row-checkbox");
+            checkboxCell.appendChild(checkboxDiv);
+
+            if (this.bodyRows[rowIndex]) {
+              for (
+                let columnIndex = 0;
+                columnIndex < this.bodyRows[rowIndex].length;
+                columnIndex++
+              ) {
+                const cell = this.bodyRows[rowIndex][columnIndex];
+                const cellElement = rowElement.insertCell(
+                  columnIndex + columnCount
                 );
-                mdcTooltipSurface.innerText = cell || "";
-                mdcTooltip.appendChild(mdcTooltipSurface);
-                mdc.tooltip.MDCTooltip.attachTo(mdcTooltip);
+                cellElement.classList.add(
+                  "mdc-data-table__cell",
+                  "data-table-cell"
+                );
+                cellElement.setAttribute(
+                  "aria-describedby",
+                  `tooltipId-${rowIndex}-${columnIndex}`
+                );
+                cellElement.innerText = cell || "";
 
-                cellElement.appendChild(mdcTooltip);
+                if (cellElement.innerText) {
+                  const mdcTooltip = document.createElement("div");
+                  mdcTooltip.classList.add("mdc-tooltip");
+                  mdcTooltip.id = `tooltipId-${rowIndex}-${columnIndex}`;
+                  mdcTooltip.setAttribute("aria-hidden", "true");
+                  mdcTooltip.setAttribute("role", "tooltip");
+                  const mdcTooltipSurface = document.createElement("div");
+                  mdcTooltipSurface.classList.add(
+                    "mdc-tooltip__surface",
+                    "mdc-tooltip__surface-animation"
+                  );
+                  mdcTooltipSurface.innerText = cell || "";
+                  mdcTooltip.appendChild(mdcTooltipSurface);
+                  mdc.tooltip.MDCTooltip.attachTo(mdcTooltip);
+
+                  cellElement.appendChild(mdcTooltip);
+                }
               }
             }
           }
+
+          this.mdcDataTable.initialSyncWithDOM();
+          this.mdcDataTable.setSelectedRowIds(selectRowIds);
         }
 
-        this.mdcDataTable.initialSyncWithDOM();
-        this.mdcDataTable.setSelectedRowIds(selectRowIds);
-      }
-
-      buildMergeData(selectedRowId) {
-        const row = this.bodyRows[parseInt(selectedRowId)];
-        const mergeData = {};
-        for (let index = 0; index < row.length; index++) {
-          const cell = row[index];
-          const headerCell = this.headerRow[index];
-          if (headerCell) {
-            const fieldCode = this.context.fieldCodes[headerCell];
-            if (fieldCode) {
-              mergeData[fieldCode] = cell || "";
+        buildMergeData(selectedRowId) {
+          const row = this.bodyRows[parseInt(selectedRowId)];
+          const mergeData = {};
+          for (let index = 0; index < row.length; index++) {
+            const cell = row[index];
+            const headerCell = this.headerRow[index];
+            if (headerCell) {
+              const fieldCode = this.context.fieldCodes[headerCell];
+              if (fieldCode) {
+                mergeData[fieldCode] = cell || "";
+              }
             }
           }
+          return mergeData;
         }
-        return mergeData;
-      }
 
-      async createAndReplaceMergeDocument(
-        selectedRowId,
-        templateDocument,
-        targetFolderId,
-        mergeData
-      ) {
-        let title = templateDocument.title;
-        for (const fieldCode in mergeData) {
-          title = title.replaceAll(
-            new RegExp(RegExp.escape(fieldCode), "g"),
-            mergeData[fieldCode]
+        async createAndReplaceMergeDocument(
+          selectedRowId,
+          templateDocument,
+          targetFolderId,
+          mergeData
+        ) {
+          let title = templateDocument.title;
+          for (const fieldCode in mergeData) {
+            title = title.replaceAll(
+              new RegExp(RegExp.escape(fieldCode), "g"),
+              mergeData[fieldCode]
+            );
+          }
+
+          const replaceAllTextRequests = [];
+          for (const fieldCode in mergeData) {
+            replaceAllTextRequests.push({
+              replaceAllText: {
+                replaceText: mergeData[fieldCode],
+                containsText: {
+                  text: RegExp.escape(fieldCode),
+                  matchCase: true,
+                  searchByRegex: true,
+                },
+              },
+            });
+          }
+
+          this.progress++;
+          if (this.progress > 0) {
+            this.mdcDataTable.showProgress();
+          }
+
+          const result = await googleScriptRun(
+            "createMergeDocument",
+            templateDocument.documentId,
+            targetFolderId,
+            title
+          ).then(async (result) => {
+            return result;
+          });
+
+          this.progress--;
+          if (this.progress === 0) {
+            this.mdcDataTable.hideProgress();
+          }
+
+          if (replaceAllTextRequests.length > 0) {
+            this.progress++;
+            if (this.progress > 0) {
+              this.mdcDataTable.showProgress();
+            }
+
+            await googleScriptRun(
+              "replaceMergeDocument",
+              result.document.documentId,
+              result.document.revisionId,
+              replaceAllTextRequests
+            )
+              .then((response) => {})
+              .catch((error) => {
+                console.error(error);
+              })
+              .finally(() => {
+                this.progress--;
+                if (this.progress === 0) {
+                  this.mdcDataTable.hideProgress();
+                }
+              });
+          }
+
+          this.mergedDocuments.push({
+            document: result.document,
+            url: result.url,
+          });
+
+          const mdcIconButton = this.mdcDataTable
+            .getRows()
+            [selectedRowId].cells.namedItem("icon-button-cell")
+            .querySelector('[name="icon-button"]');
+
+          mdcIconButton.scrollIntoView();
+          mdcIconButton.href = result.url;
+          mdcIconButton.disabled = false;
+
+          const mdcIcon = mdcIconButton.firstChild;
+          mdcIcon.innerText = "open_in_new";
+
+          this.mdcDataTable.setSelectedRowIds(
+            this.mdcDataTable
+              .getSelectedRowIds()
+              .filter((rowId) => rowId !== selectedRowId)
           );
         }
 
-        const replaceAllTextRequests = [];
-        for (const fieldCode in mergeData) {
-          replaceAllTextRequests.push({
-            replaceAllText: {
-              replaceText: mergeData[fieldCode],
-              containsText: {
-                text: RegExp.escape(fieldCode),
-                matchCase: true,
-                searchByRegex: true,
-              },
-            },
+        async replaceAndAppendDocument(
+          selectedRowId,
+          targetDocument,
+          mergeData
+        ) {
+          this.progress++;
+          if (this.progress > 0) {
+            this.mdcDataTable.showProgress();
+          }
+
+          const result = await googleScriptRun(
+            "replaceAndAppendDocument",
+            targetDocument.document.documentId,
+            mergeData
+          )
+            .then((response) => {
+              return response;
+            })
+            .catch((error) => {
+              console.error(error);
+            })
+            .finally(() => {
+              this.progress--;
+              if (this.progress === 0) {
+                this.mdcDataTable.hideProgress();
+              }
+            });
+
+          this.mergedDocuments.push({
+            document: targetDocument.document,
+            url: targetDocument.url,
           });
+
+          const mdcIconButton = this.mdcDataTable
+            .getRows()
+            [selectedRowId].cells.namedItem("icon-button-cell")
+            .querySelector('[name="icon-button"]');
+
+          mdcIconButton.scrollIntoView();
+          mdcIconButton.href = targetDocument.url;
+          mdcIconButton.disabled = false;
+
+          const mdcIcon = mdcIconButton.firstChild;
+          mdcIcon.innerText = "open_in_new";
+
+          this.mdcDataTable.setSelectedRowIds(
+            this.mdcDataTable
+              .getSelectedRowIds()
+              .filter((rowId) => rowId !== selectedRowId)
+          );
         }
 
-        this.progress++;
-        if (this.progress > 0) {
-          this.mdcDataTable.showProgress();
-        }
+        async mergeDocumentsToSingleFile(selectedRowIds) {
+          if (!this.targetFolder) {
+            this.progress++;
+            if (this.progress > 0) {
+              this.mdcDataTable.showProgress();
+            }
 
-        const result = await googleScriptRun(
-          "createMergeDocument",
-          templateDocument.documentId,
-          targetFolderId,
-          title
-        ).then(async (result) => {
-          return result;
-        });
+            await googleScriptRun(
+              "createTargetFolder",
+              this.templateDocument.documentId
+            )
+              .then((response) => {
+                this.targetFolder = response;
 
-        this.progress--;
-        if (this.progress === 0) {
-          this.mdcDataTable.hideProgress();
-        }
+                const mdcIconButton = this.mdcDataTable
+                  .getHeaderCells()
+                  .find((cell) => {
+                    return cell.getAttribute("name") === "icon-button-cell";
+                  })
+                  .querySelector('[name="icon-button"]');
+                mdcIconButton.href = this.targetFolder.url;
+                mdcIconButton.disabled = false;
 
-        if (replaceAllTextRequests.length > 0) {
+                const mdcIcon = mdcIconButton.firstChild;
+                mdcIcon.innerText = "folder";
+              })
+              .finally(() => {
+                this.progress--;
+                if (this.progress === 0) {
+                  this.mdcDataTable.hideProgress();
+                }
+              });
+          }
+
           this.progress++;
           if (this.progress > 0) {
             this.mdcDataTable.showProgress();
           }
 
           await googleScriptRun(
-            "replaceMergeDocument",
-            result.document.documentId,
-            result.document.revisionId,
-            replaceAllTextRequests
+            "createAndClearMergeDocument",
+            this.templateDocument.documentId,
+            this.targetFolder.id,
+            this.templateDocument.title
           )
-            .then((response) => { })
+            .then(async (targetDocument) => {
+              for (const selectedRowId of selectedRowIds) {
+                const mergeData = this.buildMergeData(selectedRowId);
+
+                await this.replaceAndAppendDocument(
+                  selectedRowId,
+                  targetDocument,
+                  mergeData
+                );
+              }
+            })
             .catch((error) => {
               console.error(error);
             })
@@ -394,407 +551,269 @@
             });
         }
 
-        this.mergedDocuments.push({
-          document: result.document,
-          url: result.url,
-        });
-
-        const mdcIconButton = this.mdcDataTable
-          .getRows()
-        [selectedRowId].cells.namedItem("icon-button-cell")
-          .querySelector('[name="icon-button"]');
-
-        mdcIconButton.scrollIntoView();
-        mdcIconButton.href = result.url;
-        mdcIconButton.disabled = false;
-
-        const mdcIcon = mdcIconButton.firstChild;
-        mdcIcon.innerText = "open_in_new";
-
-        this.mdcDataTable.setSelectedRowIds(
-          this.mdcDataTable
-            .getSelectedRowIds()
-            .filter((rowId) => rowId !== selectedRowId)
-        );
-      }
-
-      async replaceAndAppendDocument(
-        selectedRowId,
-        targetDocument,
-        mergeData
-      ) {
-        this.progress++;
-        if (this.progress > 0) {
-          this.mdcDataTable.showProgress();
-        }
-
-        const result = await googleScriptRun(
-          "replaceAndAppendDocument",
-          targetDocument.document.documentId,
-          mergeData
-        )
-          .then((response) => {
-            return response;
-          })
-          .catch((error) => {
-            console.error(error);
-          })
-          .finally(() => {
-            this.progress--;
-            if (this.progress === 0) {
-              this.mdcDataTable.hideProgress();
+        async mergeDocumentsToSeparateFiles(selectedRowIds) {
+          if (!this.targetFolder) {
+            this.progress++;
+            if (this.progress > 0) {
+              this.mdcDataTable.showProgress();
             }
-          });
 
-        this.mergedDocuments.push({
-          document: targetDocument.document,
-          url: targetDocument.url,
-        });
+            await googleScriptRun(
+              "createTargetFolder",
+              this.templateDocument.documentId
+            )
+              .then((response) => {
+                this.targetFolder = response;
 
-        const mdcIconButton = this.mdcDataTable
-          .getRows()
-        [selectedRowId].cells.namedItem("icon-button-cell")
-          .querySelector('[name="icon-button"]');
+                const mdcIconButton = this.mdcDataTable
+                  .getHeaderCells()
+                  .find((cell) => {
+                    return cell.getAttribute("name") === "icon-button-cell";
+                  })
+                  .querySelector('[name="icon-button"]');
+                mdcIconButton.href = this.targetFolder.url;
+                mdcIconButton.disabled = false;
 
-        mdcIconButton.scrollIntoView();
-        mdcIconButton.href = targetDocument.url;
-        mdcIconButton.disabled = false;
-
-        const mdcIcon = mdcIconButton.firstChild;
-        mdcIcon.innerText = "open_in_new";
-
-        this.mdcDataTable.setSelectedRowIds(
-          this.mdcDataTable
-            .getSelectedRowIds()
-            .filter((rowId) => rowId !== selectedRowId)
-        );
-      }
-
-      async mergeDocumentsToSingleFile(selectedRowIds) {
-        if (!this.targetFolder) {
-          this.progress++;
-          if (this.progress > 0) {
-            this.mdcDataTable.showProgress();
+                const mdcIcon = mdcIconButton.firstChild;
+                mdcIcon.innerText = "folder";
+              })
+              .finally(() => {
+                this.progress--;
+                if (this.progress === 0) {
+                  this.mdcDataTable.hideProgress();
+                }
+              });
           }
 
-          await googleScriptRun(
-            "createTargetFolder",
-            this.templateDocument.documentId
-          )
-            .then((response) => {
-              this.targetFolder = response;
+          const asyncRequestQueue = new AsyncRequestQueue(5);
+          for (const selectedRowId of selectedRowIds) {
+            const mergeData = this.buildMergeData(selectedRowId);
 
-              const mdcIconButton = this.mdcDataTable
-                .getHeaderCells()
-                .find((cell) => {
-                  return cell.getAttribute("name") === "icon-button-cell";
-                })
-                .querySelector('[name="icon-button"]');
-              mdcIconButton.href = this.targetFolder.url;
-              mdcIconButton.disabled = false;
-
-              const mdcIcon = mdcIconButton.firstChild;
-              mdcIcon.innerText = "folder";
-            })
-            .finally(() => {
-              this.progress--;
-              if (this.progress === 0) {
-                this.mdcDataTable.hideProgress();
-              }
-            });
-        }
-
-        this.progress++;
-        if (this.progress > 0) {
-          this.mdcDataTable.showProgress();
-        }
-
-        await googleScriptRun(
-          "createMergeDocument",
-          this.templateDocument.documentId,
-          this.targetFolder.id,
-          this.templateDocument.title
-        )
-          .then(async (targetDocument) => {
-            for (const selectedRowId of selectedRowIds) {
-              const mergeData = this.buildMergeData(selectedRowId);
-
-              await this.replaceAndAppendDocument(
+            asyncRequestQueue.add(async () => {
+              await this.createAndReplaceMergeDocument(
                 selectedRowId,
-                targetDocument,
+                this.templateDocument,
+                this.targetFolder.id,
                 mergeData
               );
-            }
-          })
-          .catch((error) => {
-            console.error(error);
-          })
-          .finally(() => {
-            this.progress--;
-            if (this.progress === 0) {
-              this.mdcDataTable.hideProgress();
-            }
-          });
-      }
-
-      async mergeDocumentsToSeparateFiles(selectedRowIds) {
-        if (!this.targetFolder) {
-          this.progress++;
-          if (this.progress > 0) {
-            this.mdcDataTable.showProgress();
-          }
-
-          await googleScriptRun(
-            "createTargetFolder",
-            this.templateDocument.documentId
-          )
-            .then((response) => {
-              this.targetFolder = response;
-
-              const mdcIconButton = this.mdcDataTable
-                .getHeaderCells()
-                .find((cell) => {
-                  return cell.getAttribute("name") === "icon-button-cell";
-                })
-                .querySelector('[name="icon-button"]');
-              mdcIconButton.href = this.targetFolder.url;
-              mdcIconButton.disabled = false;
-
-              const mdcIcon = mdcIconButton.firstChild;
-              mdcIcon.innerText = "folder";
-            })
-            .finally(() => {
-              this.progress--;
-              if (this.progress === 0) {
-                this.mdcDataTable.hideProgress();
-              }
             });
+          }
         }
 
-        const asyncRequestQueue = new AsyncRequestQueue(5);
-        for (const selectedRowId of selectedRowIds) {
-          const mergeData = this.buildMergeData(selectedRowId);
-
-          asyncRequestQueue.add(async () => {
-            await this.createAndReplaceMergeDocument(
-              selectedRowId,
-              this.templateDocument,
-              this.targetFolder.id,
-              mergeData
-            );
-          });
-        }
-      }
-
-      closeMergeDialog() {
-        google.script.host.close();
-      }
-
-      onClickOutputToSingleFile(event) {
-        const selectedRowIds = this.mdcDataTable.getSelectedRowIds();
-        if (selectedRowIds.length === 0) {
-          return;
+        closeMergeDialog() {
+          google.script.host.close();
         }
 
-        this.mergeDocumentsToSingleFile(selectedRowIds);
-      }
+        onClickOutputToSingleFile(event) {
+          const selectedRowIds = this.mdcDataTable.getSelectedRowIds();
+          if (selectedRowIds.length === 0) {
+            return;
+          }
 
-      onClickOutputToSeparateFiles(event) {
-        const selectedRowIds = this.mdcDataTable.getSelectedRowIds();
-        if (selectedRowIds.length === 0) {
-          return;
+          this.mergeDocumentsToSingleFile(selectedRowIds);
         }
 
-        this.mergeDocumentsToSeparateFiles(selectedRowIds);
+        onClickOutputToSeparateFiles(event) {
+          const selectedRowIds = this.mdcDataTable.getSelectedRowIds();
+          if (selectedRowIds.length === 0) {
+            return;
+          }
+
+          this.mergeDocumentsToSeparateFiles(selectedRowIds);
+        }
+
+        onClickMerge(event) {
+          this.mergeMenuRef.value.open = !this.mergeMenuRef.value.open;
+        }
+
+        onClickBackButton(event) {
+          this.closeMergeDialog();
+        }
+      }
+      customElements.define("merge-view", MergeView);
+
+      function createMdcCheckbox() {
+        const checkboxDiv = document.createElement("div");
+        checkboxDiv.classList.add("mdc-checkbox");
+
+        const checkboxInput = document.createElement("input");
+        checkboxInput.type = "checkbox";
+        checkboxInput.classList.add("mdc-checkbox__native-control");
+        checkboxDiv.appendChild(checkboxInput);
+
+        const checkboxBackground = document.createElement("div");
+        checkboxBackground.classList.add("mdc-checkbox__background");
+
+        const checkboxSvg = document.createElementNS(
+          "http://www.w3.org/2000/svg",
+          "svg"
+        );
+        checkboxSvg.classList.add("mdc-checkbox__checkmark");
+        checkboxSvg.setAttribute("viewBox", "0 0 24 24");
+
+        const checkboxPath = document.createElementNS(
+          "http://www.w3.org/2000/svg",
+          "path"
+        );
+        checkboxPath.classList.add("mdc-checkbox__checkmark-path");
+        checkboxPath.setAttribute("fill", "none");
+        checkboxPath.setAttribute("d", "M1.73,12.91 8.1,19.28 22.79,4.59");
+        checkboxSvg.appendChild(checkboxPath);
+        checkboxBackground.appendChild(checkboxSvg);
+
+        const checkboxMixedmark = document.createElement("div");
+        checkboxMixedmark.classList.add("mdc-checkbox__mixedmark");
+        checkboxBackground.appendChild(checkboxMixedmark);
+        checkboxDiv.appendChild(checkboxBackground);
+
+        const checkboxRipple = document.createElement("div");
+        checkboxRipple.classList.add("mdc-checkbox__ripple");
+        checkboxDiv.appendChild(checkboxRipple);
+
+        return checkboxDiv;
       }
 
-      onClickMerge(event) {
-        this.mergeMenuRef.value.open = !this.mergeMenuRef.value.open;
-      }
+      class AsyncRequestQueue {
+        constructor(concurrencyMax = 5, defaultOptions = {}) {
+          this.concurrencyMax = concurrencyMax;
+          this.activeCount = 0;
+          this.queue = [];
 
-      onClickBackButton(event) {
-        this.closeMergeDialog();
-      }
-    }
-    customElements.define("merge-view", MergeView);
+          this.defaults = {
+            maximum_retries: 8,
+            maximum_backoff_milliseconds: 64 * 1000,
+            timeout: 10000,
+            ...defaultOptions,
+          };
+        }
 
-    function createMdcCheckbox() {
-      const checkboxDiv = document.createElement("div");
-      checkboxDiv.classList.add("mdc-checkbox");
-
-      const checkboxInput = document.createElement("input");
-      checkboxInput.type = "checkbox";
-      checkboxInput.classList.add("mdc-checkbox__native-control");
-      checkboxDiv.appendChild(checkboxInput);
-
-      const checkboxBackground = document.createElement("div");
-      checkboxBackground.classList.add("mdc-checkbox__background");
-
-      const checkboxSvg = document.createElementNS(
-        "http://www.w3.org/2000/svg",
-        "svg"
-      );
-      checkboxSvg.classList.add("mdc-checkbox__checkmark");
-      checkboxSvg.setAttribute("viewBox", "0 0 24 24");
-
-      const checkboxPath = document.createElementNS(
-        "http://www.w3.org/2000/svg",
-        "path"
-      );
-      checkboxPath.classList.add("mdc-checkbox__checkmark-path");
-      checkboxPath.setAttribute("fill", "none");
-      checkboxPath.setAttribute("d", "M1.73,12.91 8.1,19.28 22.79,4.59");
-      checkboxSvg.appendChild(checkboxPath);
-      checkboxBackground.appendChild(checkboxSvg);
-
-      const checkboxMixedmark = document.createElement("div");
-      checkboxMixedmark.classList.add("mdc-checkbox__mixedmark");
-      checkboxBackground.appendChild(checkboxMixedmark);
-      checkboxDiv.appendChild(checkboxBackground);
-
-      const checkboxRipple = document.createElement("div");
-      checkboxRipple.classList.add("mdc-checkbox__ripple");
-      checkboxDiv.appendChild(checkboxRipple);
-
-      return checkboxDiv;
-    }
-
-    class AsyncRequestQueue {
-      constructor(concurrencyMax = 5, defaultOptions = {}) {
-        this.concurrencyMax = concurrencyMax;
-        this.activeCount = 0;
-        this.queue = [];
-
-        this.defaults = {
-          maximum_retries: 8,
-          maximum_backoff_milliseconds: 64 * 1000,
-          timeout: 10000,
-          ...defaultOptions,
-        };
-      }
-
-      _sleep(milliseconds) {
-        return new Promise((resolve) => {
-          return window.setTimeout(resolve, milliseconds);
-        });
-      }
-
-      _executeWithTimeout(task, milliseconds) {
-        return new Promise((resolve, reject) => {
-          const timerId = window.setTimeout(() => {
-            return reject(
-              new Error(
-                `AsyncRequestQueue: Timeout exceeded (${milliseconds}ms)`
-              )
-            );
-          }, milliseconds);
-
-          return task().then(
-            (value) => {
-              window.clearTimeout(timerId);
-              return resolve(value);
-            },
-            (reason) => {
-              window.clearTimeout(timerId);
-              return reject(reason);
-            }
-          );
-        });
-      }
-
-      async add(task, options = {}) {
-        const config = {
-          ...this.defaults,
-          ...options,
-        };
-
-        if (this.activeCount > this.concurrencyMax) {
-          await new Promise((resolve) => {
-            return this.queue.push(resolve);
+        _sleep(milliseconds) {
+          return new Promise((resolve) => {
+            return window.setTimeout(resolve, milliseconds);
           });
         }
 
-        this.activeCount++;
+        _executeWithTimeout(task, milliseconds) {
+          return new Promise((resolve, reject) => {
+            const timerId = window.setTimeout(() => {
+              return reject(
+                new Error(
+                  `AsyncRequestQueue: Timeout exceeded (${milliseconds}ms)`
+                )
+              );
+            }, milliseconds);
 
-        try {
-          let attempt = 0;
-
-          while (true) {
-            try {
-              return await this._executeWithTimeout(task, config.timeout);
-            } catch (error) {
-              attempt++;
-
-              if (attempt > config.maximum_retries) {
-                throw error;
+            return task().then(
+              (value) => {
+                window.clearTimeout(timerId);
+                return resolve(value);
+              },
+              (reason) => {
+                window.clearTimeout(timerId);
+                return reject(reason);
               }
+            );
+          });
+        }
 
-              const waitTime = Math.min(
-                Math.pow(2, attempt) + Math.floor(Math.random() * 1000),
-                config.maximum_backoff_milliseconds
-              );
+        async add(task, options = {}) {
+          const config = {
+            ...this.defaults,
+            ...options,
+          };
 
-              console.warn(
-                `AsyncRequestQueue: Attempt ${attempt} failed. Retrying in ${waitTime}ms...`,
-                error.message
-              );
-
-              await this._sleep(waitTime);
-            }
+          if (this.activeCount > this.concurrencyMax) {
+            await new Promise((resolve) => {
+              return this.queue.push(resolve);
+            });
           }
-        } finally {
-          this.activeCount--;
 
-          if (this.queue.length > 0) {
-            const nextResolver = this.queue.shift();
-            nextResolver();
+          this.activeCount++;
+
+          try {
+            let attempt = 0;
+
+            while (true) {
+              try {
+                return await this._executeWithTimeout(task, config.timeout);
+              } catch (error) {
+                attempt++;
+
+                if (attempt > config.maximum_retries) {
+                  throw error;
+                }
+
+                const waitTime = Math.min(
+                  Math.pow(2, attempt) + Math.floor(Math.random() * 1000),
+                  config.maximum_backoff_milliseconds
+                );
+
+                console.warn(
+                  `AsyncRequestQueue: Attempt ${attempt} failed. Retrying in ${waitTime}ms...`,
+                  error.message
+                );
+
+                await this._sleep(waitTime);
+              }
+            }
+          } finally {
+            this.activeCount--;
+
+            if (this.queue.length > 0) {
+              const nextResolver = this.queue.shift();
+              nextResolver();
+            }
           }
         }
       }
-    }
-  </script>
+    </script>
 
-  <style>
-    .data-table-cell {
-      max-width: max(100px, calc(100vw / 5));
-    }
+    <style>
+      .data-table-cell {
+        max-width: max(100px, calc(100vw / 5));
+      }
 
-    .data-table-cell:hover,
-    .data-table-cell:focus {
-      max-width: max(100px, calc(100vw / 5));
-    }
-  </style>
-</head>
+      .data-table-cell:hover,
+      .data-table-cell:focus {
+        max-width: max(100px, calc(100vw / 5));
+      }
+    </style>
+  </head>
 
-<body>
-  <merge-view context="<?= context ?>">
-    <div class="mdc-data-table mdc-data-table--sticky-header">
-      <div class="mdc-data-table__table-container">
-        <table class="mdc-data-table__table">
-          <thead>
-            <tr class="mdc-data-table__header-row"></tr>
-          </thead>
-          <tbody class="mdc-data-table__content"></tbody>
-        </table>
-      </div>
-      <div class="mdc-data-table__progress-indicator">
-        <div class="mdc-data-table__scrim"></div>
-        <div class="mdc-linear-progress mdc-linear-progress--indeterminate mdc-data-table__linear-progress"
-          role="progressbar">
-          <div class="mdc-linear-progress__buffer">
-            <div class="mdc-linear-progress__buffer-bar"></div>
-            <div class="mdc-linear-progress__buffer-dots"></div>
-          </div>
-          <div class="mdc-linear-progress__bar mdc-linear-progress__primary-bar">
-            <span class="mdc-linear-progress__bar-inner"></span>
-          </div>
-          <div class="mdc-linear-progress__bar mdc-linear-progress__secondary-bar">
-            <span class="mdc-linear-progress__bar-inner"></span>
+  <body>
+    <merge-view context="<?= context ?>">
+      <div class="mdc-data-table mdc-data-table--sticky-header">
+        <div class="mdc-data-table__table-container">
+          <table class="mdc-data-table__table">
+            <thead>
+              <tr class="mdc-data-table__header-row"></tr>
+            </thead>
+            <tbody class="mdc-data-table__content"></tbody>
+          </table>
+        </div>
+        <div class="mdc-data-table__progress-indicator">
+          <div class="mdc-data-table__scrim"></div>
+          <div
+            class="mdc-linear-progress mdc-linear-progress--indeterminate mdc-data-table__linear-progress"
+            role="progressbar"
+          >
+            <div class="mdc-linear-progress__buffer">
+              <div class="mdc-linear-progress__buffer-bar"></div>
+              <div class="mdc-linear-progress__buffer-dots"></div>
+            </div>
+            <div
+              class="mdc-linear-progress__bar mdc-linear-progress__primary-bar"
+            >
+              <span class="mdc-linear-progress__bar-inner"></span>
+            </div>
+            <div
+              class="mdc-linear-progress__bar mdc-linear-progress__secondary-bar"
+            >
+              <span class="mdc-linear-progress__bar-inner"></span>
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  </merge-view>
-</body>
-
+    </merge-view>
+  </body>
 </html>
