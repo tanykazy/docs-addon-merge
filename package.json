@@ -2,7 +2,7 @@
   "devDependencies": {
     "@google/clasp": "^3.1.0",
     "@types/gapi": "^0.0.47",
-    "@types/google-apps-script": "^2.0.7",
-    "@types/google.picker": "^0.0.51"
+    "@types/google-apps-script": "^2.0.8",
+    "@types/google.picker": "^0.0.52"
   }
 }
