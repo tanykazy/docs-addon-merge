@@ -123,6 +123,25 @@ function createMergeDocument(templateDocumentId, targetFolderId, name) {
     };
 }
 
+function createAndClearMergeDocument(templateDocumentId, targetFolderId, name) {
+    const templateFile = DriveApp.getFileById(templateDocumentId);
+    const targetFolder = DriveApp.getFolderById(targetFolderId);
+    const mergeFile = templateFile.makeCopy(name, targetFolder);
+
+    const docs = DocumentApp.openById(mergeFile.getId());
+    docs.getBody().clear();
+    docs.saveAndClose();
+
+    const url = mergeFile.getUrl();
+    const mergeDocument = Docs.Documents.get(mergeFile.getId(), {
+        includeTabsContent: false,
+    });
+    return {
+        url: url,
+        document: mergeDocument,
+    };
+}
+
 /**
  * Replace merge document
  * @param {string} documentId
