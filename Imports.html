@@ -1,4 +1,10 @@
 <script>
+  /**
+   * Run Google Apps Script function
+   * @param {string} name - Function name
+   * @param {...*} args - Arguments
+   * @returns {Promise<*>} Promise
+   */
   function googleScriptRun(name, ...args) {
     return new Promise(function (resolve, reject) {
       google.script.run
@@ -8,7 +14,7 @@
         .withFailureHandler(function (error, userObject) {
           console.debug(
             `The server-side function "${name}" throws an exception.`,
-            error
+            error,
           );
           reject(error);
         })

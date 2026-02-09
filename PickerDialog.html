@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
   <head>
     <base target="_top" />
@@ -12,6 +12,7 @@
       rel="stylesheet"
     />
 
+    <!-- Material Components -->
     <link
       href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap"
       rel="stylesheet"
@@ -92,6 +93,9 @@
           `;
         }
 
+        /**
+         * Create picker
+         */
         createPicker() {
           this.picker = createPicker(this.oauthToken, this.apiKey, this.appId);
           this.picker.setCallback((responseObject) => {
@@ -109,6 +113,10 @@
           this.dialogOpen = false;
         }
 
+        /**
+         * Handle picked
+         * @param {google.picker.Response} responseObject
+         */
         handlePicked(responseObject) {
           const doc = responseObject[google.picker.Response.DOCUMENTS][0];
           const context = {
@@ -125,12 +133,19 @@
           this.openSidebar(context);
         }
 
+        /**
+         * Open sidebar
+         * @param {Object} context
+         */
         openSidebar(context) {
           googleScriptRun("openSidebar", context).then(() => {
             this.closePickerDialog();
           });
         }
 
+        /**
+         * Close picker dialog
+         */
         closePickerDialog() {
           google.script.host.close();
         }
@@ -139,8 +154,15 @@
     </script>
 
     <script>
+      /**
+       * Picker API loaded
+       * @type {boolean}
+       */
       let pickerApiLoaded = false;
 
+      /**
+       * On API load
+       */
       function onApiLoad() {
         gapi.load("picker", {
           callback: function () {
@@ -149,6 +171,13 @@
         });
       }
 
+      /**
+       * Create picker
+       * @param {string} oauthToken
+       * @param {string} apiKey
+       * @param {string} appId
+       * @returns {google.picker.Picker}
+       */
       function createPicker(oauthToken, apiKey, appId) {
         if (!pickerApiLoaded) {
           throw new Error("Picker API not loaded");
@@ -173,21 +202,21 @@
               .setSelectFolderEnabled(false)
               .setIncludeFolders(false)
               .setEnableDrives(false)
-              .setMode(google.picker.DocsViewMode.LIST)
+              .setMode(google.picker.DocsViewMode.LIST),
           )
           .addView(
             new google.picker.DocsView(google.picker.ViewId.DOCS)
               .setSelectFolderEnabled(false)
               .setIncludeFolders(true)
               .setOwnedByMe(true)
-              .setMode(google.picker.DocsViewMode.LIST)
+              .setMode(google.picker.DocsViewMode.LIST),
           )
           .addView(
             new google.picker.DocsView(google.picker.ViewId.DOCS)
               .setSelectFolderEnabled(false)
               .setIncludeFolders(true)
               .setEnableDrives(true)
-              .setMode(google.picker.DocsViewMode.LIST)
+              .setMode(google.picker.DocsViewMode.LIST),
           )
           .build();
         return picker;

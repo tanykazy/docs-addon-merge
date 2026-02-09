@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
   <head>
     <base target="_top" />
@@ -73,8 +73,8 @@
             converter: (value) => {
               try {
                 return JSON.parse(value);
-              } catch (e) {
-                console.error("Failed to parse context JSON:", e);
+              } catch (error) {
+                console.error("Failed to parse context JSON:", error);
                 return null;
               }
             },
@@ -164,7 +164,7 @@
           googleScriptRun(
             "getSheetValues",
             this.context.spreadsheet.spreadsheetId,
-            this.context.sheet.properties.sheetId
+            this.context.sheet.properties.sheetId,
           ).then((response) => {
             const valueRange = response.valueRanges[0].valueRange;
 
@@ -203,6 +203,9 @@
           }
         }
 
+        /**
+         * Render mdc data table
+         */
         renderMdcDataTable() {
           const iconButtonCell = document.createElement("th");
           iconButtonCell.classList.add("mdc-data-table__header-cell");
@@ -223,7 +226,7 @@
           const checkboxCell = document.createElement("th");
           checkboxCell.classList.add(
             "mdc-data-table__header-cell",
-            "mdc-data-table__header-cell--checkbox"
+            "mdc-data-table__header-cell--checkbox",
           );
           checkboxCell.scope = "col";
 
@@ -269,7 +272,7 @@
             const checkboxCell = rowElement.insertCell(columnCount++);
             checkboxCell.classList.add(
               "mdc-data-table__cell",
-              "mdc-data-table__cell--checkbox"
+              "mdc-data-table__cell--checkbox",
             );
 
             const checkboxDiv = createMdcCheckbox();
@@ -284,15 +287,15 @@
               ) {
                 const cell = this.bodyRows[rowIndex][columnIndex];
                 const cellElement = rowElement.insertCell(
-                  columnIndex + columnCount
+                  columnIndex + columnCount,
                 );
                 cellElement.classList.add(
                   "mdc-data-table__cell",
-                  "data-table-cell"
+                  "data-table-cell",
                 );
                 cellElement.setAttribute(
                   "aria-describedby",
-                  `tooltipId-${rowIndex}-${columnIndex}`
+                  `tooltipId-${rowIndex}-${columnIndex}`,
                 );
                 cellElement.innerText = cell || "";
 
@@ -305,7 +308,7 @@
                   const mdcTooltipSurface = document.createElement("div");
                   mdcTooltipSurface.classList.add(
                     "mdc-tooltip__surface",
-                    "mdc-tooltip__surface-animation"
+                    "mdc-tooltip__surface-animation",
                   );
                   mdcTooltipSurface.innerText = cell || "";
                   mdcTooltip.appendChild(mdcTooltipSurface);
@@ -321,6 +324,11 @@
           this.mdcDataTable.setSelectedRowIds(selectRowIds);
         }
 
+        /**
+         * Build merge data
+         * @param {string} selectedRowId
+         * @returns {Object}
+         */
         buildMergeData(selectedRowId) {
           const row = this.bodyRows[parseInt(selectedRowId)];
           const mergeData = {};
@@ -337,17 +345,25 @@
           return mergeData;
         }
 
+        /**
+         * Create and replace merge document
+         * @param {string} selectedRowId
+         * @param {Object} templateDocument
+         * @param {string} targetFolderId
+         * @param {Object} mergeData
+         * @returns {Promise<void>}
+         */
         async createAndReplaceMergeDocument(
           selectedRowId,
           templateDocument,
           targetFolderId,
-          mergeData
+          mergeData,
         ) {
           let title = templateDocument.title;
           for (const fieldCode in mergeData) {
             title = title.replaceAll(
               new RegExp(RegExp.escape(fieldCode), "g"),
-              mergeData[fieldCode]
+              mergeData[fieldCode],
             );
           }
 
@@ -374,7 +390,7 @@
             "createMergeDocument",
             templateDocument.documentId,
             targetFolderId,
-            title
+            title,
           ).then(async (result) => {
             return result;
           });
@@ -394,7 +410,7 @@
               "replaceMergeDocument",
               result.document.documentId,
               result.document.revisionId,
-              replaceAllTextRequests
+              replaceAllTextRequests,
             )
               .then((response) => {})
               .catch((error) => {
@@ -428,14 +444,21 @@
           this.mdcDataTable.setSelectedRowIds(
             this.mdcDataTable
               .getSelectedRowIds()
-              .filter((rowId) => rowId !== selectedRowId)
+              .filter((rowId) => rowId !== selectedRowId),
           );
         }
 
+        /**
+         * Replace and append document
+         * @param {string} selectedRowId
+         * @param {Object} targetDocument
+         * @param {Object} mergeData
+         * @returns {Promise<void>}
+         */
         async replaceAndAppendDocument(
           selectedRowId,
           targetDocument,
-          mergeData
+          mergeData,
         ) {
           this.progress++;
           if (this.progress > 0) {
@@ -445,7 +468,7 @@
           const result = await googleScriptRun(
             "replaceAndAppendDocument",
             targetDocument.document.documentId,
-            mergeData
+            mergeData,
           )
             .then((response) => {
               return response;
@@ -480,10 +503,15 @@
           this.mdcDataTable.setSelectedRowIds(
             this.mdcDataTable
               .getSelectedRowIds()
-              .filter((rowId) => rowId !== selectedRowId)
+              .filter((rowId) => rowId !== selectedRowId),
           );
         }
 
+        /**
+         * Merge documents to single file
+         * @param {string[]} selectedRowIds
+         * @returns {Promise<void>}
+         */
         async mergeDocumentsToSingleFile(selectedRowIds) {
           if (!this.targetFolder) {
             this.progress++;
@@ -493,7 +521,8 @@
 
             await googleScriptRun(
               "createTargetFolder",
-              this.templateDocument.documentId
+              this.templateDocument.documentId,
+              this.context.parentId,
             )
               .then((response) => {
                 this.targetFolder = response;
@@ -527,7 +556,7 @@
             "createAndClearMergeDocument",
             this.templateDocument.documentId,
             this.targetFolder.id,
-            this.templateDocument.title
+            this.templateDocument.title,
           )
             .then(async (targetDocument) => {
               for (const selectedRowId of selectedRowIds) {
@@ -536,7 +565,7 @@
                 await this.replaceAndAppendDocument(
                   selectedRowId,
                   targetDocument,
-                  mergeData
+                  mergeData,
                 );
               }
             })
@@ -551,6 +580,11 @@
             });
         }
 
+        /**
+         * Merge documents to separate files
+         * @param {string[]} selectedRowIds
+         * @returns {Promise<void>}
+         */
         async mergeDocumentsToSeparateFiles(selectedRowIds) {
           if (!this.targetFolder) {
             this.progress++;
@@ -560,7 +594,8 @@
 
             await googleScriptRun(
               "createTargetFolder",
-              this.templateDocument.documentId
+              this.templateDocument.documentId,
+              this.context.parentId,
             )
               .then((response) => {
                 this.targetFolder = response;
@@ -594,16 +629,23 @@
                 selectedRowId,
                 this.templateDocument,
                 this.targetFolder.id,
-                mergeData
+                mergeData,
               );
             });
           }
         }
 
+        /**
+         * Close merge dialog
+         */
         closeMergeDialog() {
           google.script.host.close();
         }
 
+        /**
+         * Click output to single file
+         * @param {Event} event
+         */
         onClickOutputToSingleFile(event) {
           const selectedRowIds = this.mdcDataTable.getSelectedRowIds();
           if (selectedRowIds.length === 0) {
@@ -613,6 +655,10 @@
           this.mergeDocumentsToSingleFile(selectedRowIds);
         }
 
+        /**
+         * Click output to separate files
+         * @param {Event} event
+         */
         onClickOutputToSeparateFiles(event) {
           const selectedRowIds = this.mdcDataTable.getSelectedRowIds();
           if (selectedRowIds.length === 0) {
@@ -622,16 +668,28 @@
           this.mergeDocumentsToSeparateFiles(selectedRowIds);
         }
 
+        /**
+         * Click merge
+         * @param {Event} event
+         */
         onClickMerge(event) {
           this.mergeMenuRef.value.open = !this.mergeMenuRef.value.open;
         }
 
+        /**
+         * Click back button
+         * @param {Event} event
+         */
         onClickBackButton(event) {
           this.closeMergeDialog();
         }
       }
       customElements.define("merge-view", MergeView);
 
+      /**
+       * Create mdc checkbox
+       * @returns {HTMLElement}
+       */
       function createMdcCheckbox() {
         const checkboxDiv = document.createElement("div");
         checkboxDiv.classList.add("mdc-checkbox");
@@ -646,14 +704,14 @@
 
         const checkboxSvg = document.createElementNS(
           "http://www.w3.org/2000/svg",
-          "svg"
+          "svg",
         );
         checkboxSvg.classList.add("mdc-checkbox__checkmark");
         checkboxSvg.setAttribute("viewBox", "0 0 24 24");
 
         const checkboxPath = document.createElementNS(
           "http://www.w3.org/2000/svg",
-          "path"
+          "path",
         );
         checkboxPath.classList.add("mdc-checkbox__checkmark-path");
         checkboxPath.setAttribute("fill", "none");
@@ -673,7 +731,15 @@
         return checkboxDiv;
       }
 
+      /**
+       * Async request queue
+       */
       class AsyncRequestQueue {
+        /**
+         * Create async request queue
+         * @param {number} concurrencyMax
+         * @param {Object} defaultOptions
+         */
         constructor(concurrencyMax = 5, defaultOptions = {}) {
           this.concurrencyMax = concurrencyMax;
           this.activeCount = 0;
@@ -687,19 +753,30 @@
           };
         }
 
+        /**
+         * Sleep
+         * @param {number} milliseconds
+         * @returns {Promise<void>}
+         */
         _sleep(milliseconds) {
           return new Promise((resolve) => {
             return window.setTimeout(resolve, milliseconds);
           });
         }
 
+        /**
+         * Execute with timeout
+         * @param {Function} task
+         * @param {number} milliseconds
+         * @returns {Promise<any>}
+         */
         _executeWithTimeout(task, milliseconds) {
           return new Promise((resolve, reject) => {
             const timerId = window.setTimeout(() => {
               return reject(
                 new Error(
-                  `AsyncRequestQueue: Timeout exceeded (${milliseconds}ms)`
-                )
+                  `AsyncRequestQueue: Timeout exceeded (${milliseconds}ms)`,
+                ),
               );
             }, milliseconds);
 
@@ -711,11 +788,17 @@
               (reason) => {
                 window.clearTimeout(timerId);
                 return reject(reason);
-              }
+              },
             );
           });
         }
 
+        /**
+         * Add task to queue
+         * @param {Function} task
+         * @param {Object} options
+         * @returns {Promise<any>}
+         */
         async add(task, options = {}) {
           const config = {
             ...this.defaults,
@@ -745,12 +828,12 @@
 
                 const waitTime = Math.min(
                   Math.pow(2, attempt) + Math.floor(Math.random() * 1000),
-                  config.maximum_backoff_milliseconds
+                  config.maximum_backoff_milliseconds,
                 );
 
                 console.warn(
                   `AsyncRequestQueue: Attempt ${attempt} failed. Retrying in ${waitTime}ms...`,
-                  error.message
+                  error.message,
                 );
 
                 await this._sleep(waitTime);

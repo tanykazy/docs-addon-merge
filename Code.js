@@ -4,7 +4,7 @@
 
 /**
  * On open
- * @param {Object} event
+ * @param {GoogleAppsScript.Events.DocsOnOpen} event
  */
 function onOpen(event) {
     createMenu();
@@ -12,16 +12,17 @@ function onOpen(event) {
 
 /**
  * On install
- * @param {Object} event
+ * @param {GoogleAppsScript.Events.AppsScriptEvent} event
  */
 function onInstall(event) {
-    createMenu();
+    createMenu(event);
 }
 
 /**
  * Create menu
+ * @param {GoogleAppsScript.Events.AppsScriptEvent} event
  */
-function createMenu() {
+function createMenu(event) {
     DocumentApp.getUi()
         .createMenu("差し込み文書")
         .addItem("データソースを選択", openPickerDialog.name)
@@ -81,19 +82,37 @@ function openMergeDialog(context) {
 
 /**
  * Create target folder
- * @param {string} templateDocumentId
+ * @param {string} templateDocumentId - template document id
+ * @param {string} [parentId] - parent folder id (optional)
  * @returns {Object} Target folder
  */
-function createTargetFolder(templateDocumentId) {
+function createTargetFolder(templateDocumentId, parentId) {
     const templateDocument = DriveApp.getFileById(templateDocumentId);
-    const parentFolders = getParentsFolders_(templateDocument);
-    const availableFolders = selectAvailableFolders_(parentFolders);
-    const availableFolder = availableFolders[0];
-    if (availableFolders.length > 1) {
-        console.log('Multiple available folders found. Using the first one.');
+    const parentFolders = [];
+    if (parentId) {
+        const parentFolder = DriveApp.getFolderById(parentId);
+        parentFolders.push(parentFolder);
+
+    } else {
+        parentFolders.push(...getParentsFolders_(templateDocument));
     }
-    const targetFolder = DriveApp.createFolder(`[差し込み文書]${templateDocument.getName()}`);
-    targetFolder.moveTo(availableFolder);
+
+    if (parentFolders.length === 0) {
+        parentFolders.push(DriveApp.getRootFolder());
+    }
+
+    const availableFolder = parentFolders[0];
+    if (parentFolders.length > 1) {
+        console.log('Multiple parent folders found. Using the first one.');
+    }
+
+    let targetFolder;
+
+    try {
+        targetFolder = availableFolder.createFolder(`[差し込み文書]${templateDocument.getName()}`);
+    } catch (error) {
+        targetFolder = DriveApp.getRootFolder()
+    }
 
     return {
         name: targetFolder.getName(),
@@ -117,12 +136,20 @@ function createMergeDocument(templateDocumentId, targetFolderId, name) {
     const mergeDocument = Docs.Documents.get(mergeFile.getId(), {
         includeTabsContent: false,
     });
+
     return {
         url: url,
         document: mergeDocument,
     };
 }
 
+/**
+ * Create and clear merge document
+ * @param {string} templateDocumentId
+ * @param {string} targetFolderId
+ * @param {string} name
+ * @returns {Object} Merge document
+ */
 function createAndClearMergeDocument(templateDocumentId, targetFolderId, name) {
     const templateFile = DriveApp.getFileById(templateDocumentId);
     const targetFolder = DriveApp.getFolderById(targetFolderId);
@@ -136,6 +163,7 @@ function createAndClearMergeDocument(templateDocumentId, targetFolderId, name) {
     const mergeDocument = Docs.Documents.get(mergeFile.getId(), {
         includeTabsContent: false,
     });
+
     return {
         url: url,
         document: mergeDocument,
@@ -146,8 +174,8 @@ function createAndClearMergeDocument(templateDocumentId, targetFolderId, name) {
  * Replace merge document
  * @param {string} documentId
  * @param {string} revisionId
- * @param {Array<Object>} replaceAllTextRequests
- * @returns {Object} Response
+ * @param {Array<GoogleAppsScript.Docs.Schema.Request>} replaceAllTextRequests
+ * @returns {GoogleAppsScript.Docs.Schema.BatchUpdateResponse} Response
  */
 function replaceMergeDocument(documentId, revisionId, replaceAllTextRequests) {
     const response = Docs.Documents.batchUpdate({
@@ -156,21 +184,28 @@ function replaceMergeDocument(documentId, revisionId, replaceAllTextRequests) {
             requiredRevisionId: revisionId,
         }
     }, documentId);
+
     return response;
 }
 
 /**
  * Get template document
- * @returns {Object} Template document
+ * @returns {GoogleAppsScript.Docs.Schema.Document} Template document
  */
 function getTemplateDocument() {
     const activeDocument = DocumentApp.getActiveDocument();
     const templateDocument = Docs.Documents.get(activeDocument.getId(), {
         includeTabsContent: false,
     });
+
     return templateDocument;
 }
 
+/**
+ * Replace and append document
+ * @param {string} targetDocumentId
+ * @param {Object} mergeData
+ */
 function replaceAndAppendDocument(targetDocumentId, mergeData) {
     const targetDocument = DocumentApp.openById(targetDocumentId);
     const targetDocumentBody = targetDocument.getBody();
@@ -217,27 +252,27 @@ function replaceAndAppendDocument(targetDocumentId, mergeData) {
 
 /**
  * Get spreadsheet
- * @param {string} spreadsheetId
- * @returns {Object} Spreadsheet
+ * @param {string} spreadsheetId - spreadsheet ID
+ * @returns {GoogleAppsScript.Sheets.Schema.Spreadsheet} Spreadsheet
  */
 function getSpreadsheet(spreadsheetId) {
     const fields = 'spreadsheetId,properties,sheets(properties),spreadsheetUrl';
-    const response = Sheets.Spreadsheets.get(spreadsheetId, {
+    const spreadsheet = Sheets.Spreadsheets.get(spreadsheetId, {
         fields: fields,
         includeGridData: false,
         excludeTablesInBandedRanges: false,
     });
-    return response;
+    return spreadsheet;
 }
 
 /**
  * Get sheet values
- * @param {string} spreadsheetId
- * @param {number} sheetId
- * @param {number} startRowIndex
- * @param {number} endRowIndex
- * @param {number} startColumnIndex
- * @param {number} endColumnIndex
+ * @param {string} spreadsheetId - spreadsheet ID
+ * @param {number} sheetId - sheet ID
+ * @param {number} startRowIndex - start row index
+ * @param {number} endRowIndex - end row index
+ * @param {number} startColumnIndex - start column index
+ * @param {number} endColumnIndex - end column index
  * @returns {Array<Array<string>>} Sheet values
  */
 function getSheetValues(spreadsheetId, sheetId, startRowIndex, endRowIndex, startColumnIndex, endColumnIndex) {
@@ -262,8 +297,8 @@ function getSheetValues(spreadsheetId, sheetId, startRowIndex, endRowIndex, star
 
 /**
  * Get parents folders
- * @param {File} file
- * @returns {Array<Folder>} Parent folders
+ * @param {GoogleAppsScript.Drive.File} file - target file
+ * @returns {Array<GoogleAppsScript.Drive.Folder>} Parent folders
  */
 function getParentsFolders_(file) {
     const parentFolders = [];
@@ -272,17 +307,13 @@ function getParentsFolders_(file) {
         const folder = folders.next();
         parentFolders.push(folder);
     }
-    if (parentFolders.length === 0) {
-        parentFolders.push(DriveApp.getRootFolder());
-    }
-
     return parentFolders;
 }
 
 /**
- * Select available folders
- * @param {Array<Folder>} folders
- * @returns {Array<Folder>} Available folders
+ * (deprecated) Select available folders 
+ * @param {Array<GoogleAppsScript.Drive.Folder>} folders - parent folders
+ * @returns {Array<GoogleAppsScript.Drive.Folder>} Available folders
  */
 function selectAvailableFolders_(folders) {
     const user = Session.getActiveUser();
@@ -308,7 +339,7 @@ function selectAvailableFolders_(folders) {
 
 /**
  * Include HTML file
- * @param {string} filename
+ * @param {string} filename - HTML file name
  * @returns {string} HTML content
  */
 function include_(filename) {

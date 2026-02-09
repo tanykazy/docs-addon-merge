@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
   <head>
     <base target="_top" />
@@ -63,8 +63,8 @@
               fromAttribute(value) {
                 try {
                   return JSON.parse(value);
-                } catch (e) {
-                  console.error("Failed to parse context JSON:", e);
+                } catch (error) {
+                  console.error("Failed to parse context JSON:", error);
                   return null;
                 }
               },
@@ -125,6 +125,7 @@
                     <md-icon-button
                       slot="end"
                       @click=${this.onClickSpreadsheetRefreshButton}
+                      title="データソースを再読み込み"
                     >
                       <md-icon>refresh</md-icon>
                     </md-icon-button>
@@ -142,6 +143,7 @@
                       slot="end"
                       href=${this.context.picked.url}
                       target="_blank"
+                      title="データソースを開く"
                     >
                       <md-icon>open_in_new</md-icon>
                     </md-icon-button>
@@ -167,9 +169,9 @@
                                   .selected=${!this.context.sheet
                                     ? false
                                     : this.context.sheet.properties.sheetId ===
-                                      sheet.properties.sheetId
-                                    ? true
-                                    : false}
+                                        sheet.properties.sheetId
+                                      ? true
+                                      : false}
                                 >
                                   <div slot="headline">
                                     ${sheet.properties.title}
@@ -188,53 +190,56 @@
                       </md-circular-progress>
                     `
                   : !this.context.headerRow
-                  ? nothing
-                  : html`
-                      <md-list>
-                        <md-list-item>
-                          <div slot="supporting-text">
-                            <span>フィールドコード</span>
-                          </div>
-                        </md-list-item>
-                        <md-divider></md-divider>
-                        ${this.context.headerRow[0].map((value) => {
-                          const warning =
-                            this.context.headerRow[0].filter((header) => {
-                              return header === value;
-                            }).length > 1;
-                          const fieldCode = toFieldCode(value);
-                          return html`${!value
-                            ? nothing
-                            : html`
-                                <md-list-item type="text">
-                                  <div slot="headline">${fieldCode}</div>
-                                  ${warning
-                                    ? html`
-                                        <div slot="supporting-text">
-                                          <span>列名が重複しています</span>
-                                        </div>
-                                      `
-                                    : nothing}
-                                  ${warning
-                                    ? html`
-                                        <md-icon slot="start">warning</md-icon>
-                                      `
-                                    : html`
-                                        <md-icon-button
-                                          slot="end"
-                                          @click=${this.onClickFieldCode.bind(
-                                            this,
-                                            fieldCode
-                                          )}
-                                        >
-                                          <md-icon>content_copy</md-icon>
-                                        </md-icon-button>
-                                      `}
-                                </md-list-item>
-                              `}`;
-                        })}
-                      </md-list>
-                    `}
+                    ? nothing
+                    : html`
+                        <md-list>
+                          <md-list-item>
+                            <div slot="supporting-text">
+                              <span>フィールドコード</span>
+                            </div>
+                          </md-list-item>
+                          <md-divider></md-divider>
+                          ${this.context.headerRow[0].map((value) => {
+                            const warning =
+                              this.context.headerRow[0].filter((header) => {
+                                return header === value;
+                              }).length > 1;
+                            const fieldCode = toFieldCode(value);
+                            return html`${!value
+                              ? nothing
+                              : html`
+                                  <md-list-item type="text">
+                                    <div slot="headline">${fieldCode}</div>
+                                    ${warning
+                                      ? html`
+                                          <div slot="supporting-text">
+                                            <span>列名が重複しています</span>
+                                          </div>
+                                        `
+                                      : nothing}
+                                    ${warning
+                                      ? html`
+                                          <md-icon slot="start"
+                                            >warning</md-icon
+                                          >
+                                        `
+                                      : html`
+                                          <md-icon-button
+                                            slot="end"
+                                            @click=${this.onClickFieldCode.bind(
+                                              this,
+                                              fieldCode,
+                                            )}
+                                            title="フィールドコードをコピー"
+                                          >
+                                            <md-icon>content_copy</md-icon>
+                                          </md-icon-button>
+                                        `}
+                                  </md-list-item>
+                                `}`;
+                          })}
+                        </md-list>
+                      `}
               </main>
 
               <footer>
@@ -264,6 +269,11 @@
             this.getSpreadsheet();
           }
 
+          console.log(this.refreshButtonRef);
+          this.refreshButtonRef.labels = [document.createElement("span")];
+          this.refreshButtonRef.labels[0].textContent = "test";
+          console.log(this.refreshButtonRef.labels);
+
           const snackbar = document.querySelector(".mdc-snackbar");
           this.mdcSnackbar = new mdc.snackbar.MDCSnackbar(snackbar);
         }
@@ -272,32 +282,53 @@
           super.disconnectedCallback();
         }
 
+        /**
+         * Open merge dialog
+         * @param {Event} event
+         */
         onClickOpenMergeDialogButton(event) {
           this.openMergeDialog();
         }
 
+        /**
+         * Close sidebar
+         * @param {Event} event
+         */
         onClickCloseSidebarButton(event) {
           this.openPickerDialog();
         }
 
+        /**
+         * Change sheet
+         * @param {Event} event
+         */
         onChangeSheet(event) {
           const value = event.target.selectedOptions[0].value;
           this.context.sheet = this.context.spreadsheet.sheets.find(
-            (sheet) => sheet.properties.sheetId === value
+            (sheet) => sheet.properties.sheetId === value,
           );
 
           this.getHeaderRow(
             this.context.spreadsheet.spreadsheetId,
-            this.context.sheet.properties.sheetId
+            this.context.sheet.properties.sheetId,
           );
         }
 
+        /**
+         * Copy field code to clipboard
+         * @param {string} fieldCode
+         * @param {Event} event
+         */
         onClickFieldCode(fieldCode, event) {
           writeTextToClipboard(fieldCode).then(() => {
             this.openSnackbar("コピーしました");
           });
         }
 
+        /**
+         * Refresh spreadsheet
+         * @param {Event} event
+         */
         onClickSpreadsheetRefreshButton(event) {
           this.getSpreadsheet();
 
@@ -305,6 +336,9 @@
           this.context.headerRow = null;
         }
 
+        /**
+         * Get spreadsheet
+         */
         getSpreadsheet() {
           this.isSpreadsheetLoading = true;
 
@@ -313,10 +347,15 @@
               this.isSpreadsheetLoading = false;
 
               this.context.spreadsheet = spreadsheet;
-            }
+            },
           );
         }
 
+        /**
+         * Get header row
+         * @param {string} spreadsheetId
+         * @param {string} sheetId
+         */
         getHeaderRow(spreadsheetId, sheetId) {
           this.isHeaderRowLoading = true;
 
@@ -326,7 +365,7 @@
             sheetId,
             0,
             1,
-            0
+            0,
           ).then((response) => {
             this.isHeaderRowLoading = false;
 
@@ -335,6 +374,9 @@
           });
         }
 
+        /**
+         * Open merge dialog
+         */
         openMergeDialog() {
           this.context.fieldCodes = {};
           const header = this.context.headerRow[0];
@@ -347,27 +389,47 @@
           googleScriptRun("openMergeDialog", this.context);
         }
 
+        /**
+         * Open picker dialog
+         */
         openPickerDialog() {
           googleScriptRun("openPickerDialog").then(() => {
             this.closeSidebar();
           });
         }
 
+        /**
+         * Open snackbar
+         * @param {string} labelText
+         */
         openSnackbar(labelText) {
           this.mdcSnackbar.labelText = labelText;
           this.mdcSnackbar.open();
         }
 
+        /**
+         * Close sidebar
+         */
         closeSidebar() {
           google.script.host.close();
         }
       }
       customElements.define("sidebar-view", SidebarView);
 
+      /**
+       * Convert value to field code
+       * @param {string} value
+       * @returns {string}
+       */
       function toFieldCode(value) {
         return `{{${value}}}`;
       }
 
+      /**
+       * Write text to clipboard
+       * @param {string} text
+       * @returns {Promise<void>}
+       */
       function writeTextToClipboard(text) {
         return navigator.clipboard.writeText(text);
       }
