@@ -434,7 +434,6 @@
             [selectedRowId].cells.namedItem("icon-button-cell")
             .querySelector('[name="icon-button"]');
 
-          mdcIconButton.scrollIntoView();
           mdcIconButton.href = result.url;
           mdcIconButton.disabled = false;
 
@@ -493,7 +492,6 @@
             [selectedRowId].cells.namedItem("icon-button-cell")
             .querySelector('[name="icon-button"]');
 
-          mdcIconButton.scrollIntoView();
           mdcIconButton.href = targetDocument.url;
           mdcIconButton.disabled = false;
 
@@ -748,7 +746,7 @@
           this.defaults = {
             maximum_retries: 8,
             maximum_backoff_milliseconds: 64 * 1000,
-            timeout: 10000,
+            timeout: 6 * 60 * 1000,
             ...defaultOptions,
           };
         }
