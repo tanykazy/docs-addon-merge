@@ -86,6 +86,8 @@
           mergedDocuments: { type: Array },
           mdcDataTable: { type: Object },
           progress: { type: Number },
+          isErrorDialogOpen: { type: Boolean },
+          errorMessage: { type: String },
         };
 
         static styles = css`
@@ -109,6 +111,9 @@
             margin-left: 1em;
             margin-right: 1em;
             margin-top: 1em;
+          }
+          .error-message-text {
+            white-space: pre-wrap;
           }
         `;
 
@@ -154,6 +159,21 @@
                   </md-menu>
                 </div>
               </footer>
+              <md-dialog
+                type="alert"
+                ?open=${this.isErrorDialogOpen}
+                @closed=${() => {
+                  this.isErrorDialogOpen = false;
+                }}
+              >
+                <div slot="headline">処理に関するお知らせ</div>
+                <form slot="content" id="error-form" method="dialog">
+                  <div class="error-message-text">${this.errorMessage}</div>
+                </form>
+                <div slot="actions">
+                  <md-text-button form="error-form">OK</md-text-button>
+                </div>
+              </md-dialog>
             </div>
           `;
         }
@@ -618,11 +638,14 @@
               });
           }
 
-          const asyncRequestQueue = new AsyncRequestQueue(5);
+          const asyncRequestQueue = new AsyncRequestQueue();
+
+          const tasks = [];
+
           for (const selectedRowId of selectedRowIds) {
             const mergeData = this.buildMergeData(selectedRowId);
 
-            asyncRequestQueue.add(async () => {
+            const task = asyncRequestQueue.add(async () => {
               await this.createAndReplaceMergeDocument(
                 selectedRowId,
                 this.templateDocument,
@@ -630,6 +653,22 @@
                 mergeData,
               );
             });
+
+            tasks.push(task);
+          }
+
+          try {
+            await Promise.all(tasks);
+          } catch (error) {
+            console.error("Merge Process Error:", error);
+
+            this.errorMessage =
+              "処理中にエラーが発生しました。\n\n" +
+              "しばらく待ってからGoogleドライブ（出力先フォルダ）を確認してください。\n\n" +
+              "詳細: " +
+              error.message;
+
+            this.isErrorDialogOpen = true;
           }
         }
 
@@ -744,9 +783,8 @@
           this.queue = [];
 
           this.defaults = {
-            maximum_retries: 8,
+            maximum_retries: 0,
             maximum_backoff_milliseconds: 64 * 1000,
-            timeout: 6 * 60 * 1000,
             ...defaultOptions,
           };
         }
@@ -759,35 +797,6 @@
         _sleep(milliseconds) {
           return new Promise((resolve) => {
             return window.setTimeout(resolve, milliseconds);
-          });
-        }
-
-        /**
-         * Execute with timeout
-         * @param {Function} task
-         * @param {number} milliseconds
-         * @returns {Promise<any>}
-         */
-        _executeWithTimeout(task, milliseconds) {
-          return new Promise((resolve, reject) => {
-            const timerId = window.setTimeout(() => {
-              return reject(
-                new Error(
-                  `AsyncRequestQueue: Timeout exceeded (${milliseconds}ms)`,
-                ),
-              );
-            }, milliseconds);
-
-            return task().then(
-              (value) => {
-                window.clearTimeout(timerId);
-                return resolve(value);
-              },
-              (reason) => {
-                window.clearTimeout(timerId);
-                return reject(reason);
-              },
-            );
           });
         }
 
@@ -816,7 +825,7 @@
 
             while (true) {
               try {
-                return await this._executeWithTimeout(task, config.timeout);
+                return await task();
               } catch (error) {
                 attempt++;
 
