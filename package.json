@@ -1,6 +1,6 @@
 {
   "devDependencies": {
-    "@google/clasp": "^3.1.0",
+    "@google/clasp": "^3.2.0",
     "@types/gapi": "^0.0.47",
     "@types/google-apps-script": "^2.0.8",
     "@types/google.picker": "^0.0.52"
