@@ -153,7 +153,10 @@
                     <md-menu-item @click=${this.onClickOutputToSingleFile}>
                       <div slot="headline">1つのファイルに出力</div>
                     </md-menu-item>
-                    <md-menu-item @click=${this.onClickOutputToSeparateFiles}>
+                    <md-menu-item
+                      ?disabled=${!IS_REGEXP_ESCAPE_SUPPORTED}
+                      @click=${this.onClickOutputToSeparateFiles}
+                    >
                       <div slot="headline">個別のファイルに出力</div>
                     </md-menu-item>
                   </md-menu>
@@ -663,10 +666,7 @@
             console.error("Merge Process Error:", error);
 
             this.errorMessage =
-              "処理中にエラーが発生しました。\n\n" +
-              "しばらく待ってからGoogleドライブ（出力先フォルダ）を確認してください。\n\n" +
-              "詳細: " +
-              error.message;
+              "処理中にエラーが発生しました。\n\n" + "詳細: " + error.message;
 
             this.isErrorDialogOpen = true;
           }
@@ -856,6 +856,12 @@
           }
         }
       }
+
+      /**
+       * RegExp.escape がサポートされているかを示すフラグ
+       * @type {boolean}
+       */
+      const IS_REGEXP_ESCAPE_SUPPORTED = typeof RegExp.escape === "function";
     </script>
 
     <style>
