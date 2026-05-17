@@ -269,11 +269,6 @@
             this.getSpreadsheet();
           }
 
-          console.log(this.refreshButtonRef);
-          this.refreshButtonRef.labels = [document.createElement("span")];
-          this.refreshButtonRef.labels[0].textContent = "test";
-          console.log(this.refreshButtonRef.labels);
-
           const snackbar = document.querySelector(".mdc-snackbar");
           this.mdcSnackbar = new mdc.snackbar.MDCSnackbar(snackbar);
         }
